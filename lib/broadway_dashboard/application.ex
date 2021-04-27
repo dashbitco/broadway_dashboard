@@ -8,8 +8,7 @@ defmodule BroadwayDashboard.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: BroadwayDashboard.Worker.start_link(arg)
-      # {BroadwayDashboard.Worker, arg}
+      BroadwayDashboard.Metrics
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
