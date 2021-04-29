@@ -10,14 +10,12 @@ defmodule BroadwayDashboard.Metrics do
   # It monitor pages and unsubscribe them in case of exit.
 
   def listen(node, parent, pipeline) do
-    # TODO: we don't need to verify if node is equal node()
+    # TODO: we don't need to ensure this if node is equal node()
     with :ok <- ensure_server_started_at_node(parent, node) do
       GenServer.call({__MODULE__, node}, {:listen, parent, pipeline})
     end
   end
 
-  # TODO: implement me as a supervised task if there is no
-  # process already running there.
   defp ensure_server_started_at_node(_parent, node) do
     case :rpc.call(node, Process, :whereis, [__MODULE__]) do
       pid when is_pid(pid) ->
