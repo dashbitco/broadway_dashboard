@@ -44,17 +44,14 @@ defmodule BroadwayDashboard do
 
     nav_pipeline =
       if nav && nav != "" do
-        String.to_existing_atom(nav)
+        to_existing_atom_or_nil(nav)
       else
         first_pipeline
       end
 
     pipeline = Enum.find(pipelines, fn name -> name == nav_pipeline end)
 
-    socket =
-      assign(socket,
-        pipelines: pipelines
-      )
+    socket = assign(socket, :pipelines, pipelines)
 
     cond do
       nav_pipeline && is_nil(pipeline) ->
@@ -83,6 +80,15 @@ defmodule BroadwayDashboard do
 
       true ->
         {:ok, assign(socket, pipeline: nil)}
+    end
+  end
+
+  defp to_existing_atom_or_nil(nav) do
+    try do
+      String.to_existing_atom(nav)
+    rescue
+      ArgumentError ->
+        nil
     end
   end
 
