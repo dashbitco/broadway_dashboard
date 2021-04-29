@@ -7,6 +7,7 @@ defmodule BroadwayDashboard do
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Metrics
   alias BroadwayDashboard.PipelineGraph
+  alias BroadwayDashboard.Teleporter
   alias BroadwayDashboard.LiveDashboard.PipelineComponent
 
   # TODO: update link
@@ -61,18 +62,23 @@ defmodule BroadwayDashboard do
       pipeline && connected?(socket) ->
         node = socket.assigns.page.node
 
-        :ok = Metrics.listen(node, self(), pipeline)
+        with :ok <- Teleporter.teleport_metrics_code(node),
+             :ok <- Metrics.listen(node, self(), pipeline),
+             {successful, failed} when is_integer(successful) and is_integer(failed) <-
+               Counters.count(node, pipeline) do
+          stats = %{
+            successful: successful,
+            failed: failed,
+            throughput_successful: 0,
+            throughput_failed: 0
+          }
 
-        {successful, failed} = Counters.count(node, pipeline)
-
-        stats = %{
-          successful: successful,
-          failed: failed,
-          throughput_successful: 0,
-          throughput_failed: 0
-        }
-
-        {:ok, assign(socket, pipeline: pipeline, stats: stats)}
+          {:ok, assign(socket, pipeline: pipeline, stats: stats)}
+        else
+          _error ->
+            # TODO: maybe log error
+            {:ok, assign(socket, pipeline: nil)}
+        end
 
       first_pipeline && is_nil(nav_pipeline) ->
         to = live_dashboard_path(socket, socket.assigns.page, nav: first_pipeline)
@@ -201,7 +207,7 @@ defmodule BroadwayDashboard do
   end
 
   defp pipeline_graph_row(node, pipeline) do
-    graph = PipelineGraph.build_layers(node, pipeline)
+    {:ok, graph} = PipelineGraph.build_layers(node, pipeline)
 
     hint = """
     Each stage of Broadway is represented here by a circle.
