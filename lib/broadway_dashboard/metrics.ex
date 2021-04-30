@@ -4,28 +4,38 @@ defmodule BroadwayDashboard.Metrics do
 
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Telemetry
+  alias BroadwayDashboard.Teleporter
 
   # It does polling every 1 second for new metrics from
   # pipelines to pages listening for events.
   # It monitor pages and unsubscribe them in case of exit.
 
-  def listen(node, parent, pipeline) do
-    # TODO: we don't need to ensure this if node is equal node()
-    with :ok <- ensure_server_started_at_node(parent, node) do
-      GenServer.call({__MODULE__, node}, {:listen, parent, pipeline})
+  def listen(target_node, parent, pipeline) do
+    msg = {:listen, parent, pipeline}
+
+    if target_node == node() do
+      GenServer.call(__MODULE__, msg)
+    else
+      with :ok <- ensure_server_started_at_node(target_node) do
+        GenServer.call({__MODULE__, target_node}, msg)
+      end
     end
   end
 
-  defp ensure_server_started_at_node(_parent, node) do
-    case :rpc.call(node, Process, :whereis, [__MODULE__]) do
+  defp ensure_server_started_at_node(target_node) do
+    case :rpc.call(target_node, Process, :whereis, [__MODULE__]) do
       pid when is_pid(pid) ->
         :ok
 
       nil ->
-        # TODO: check if was created
-        Node.spawn(node, __MODULE__, :start, [[from_node: node()]])
-
-        :ok
+        with :ok <- Teleporter.teleport_metrics_code(target_node),
+             pid when is_pid(pid) <-
+               Node.spawn(target_node, __MODULE__, :start, [[from_node: node()]]) do
+          :ok
+        else
+          _ ->
+            {:error, :not_able_to_start_remotely}
+        end
 
       {:badrpc, _} = error ->
         {:error, error}
@@ -57,7 +67,6 @@ defmodule BroadwayDashboard.Metrics do
       if is_nil(from_node) do
         state
       else
-        # TODO: check if Node.monitor/2 is enough because it was not working.
         :net_kernel.monitor_nodes(true, node_type: :all)
 
         Map.put(state, :from_node, from_node)
@@ -141,7 +150,7 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   @impl true
-  def handle_info(_msg, state) do
+  def handle_info(_, state) do
     {:noreply, state}
   end
 

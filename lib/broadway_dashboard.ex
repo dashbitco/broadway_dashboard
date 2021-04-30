@@ -7,7 +7,6 @@ defmodule BroadwayDashboard do
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Metrics
   alias BroadwayDashboard.PipelineGraph
-  alias BroadwayDashboard.Teleporter
   alias BroadwayDashboard.LiveDashboard.PipelineComponent
 
   # TODO: update link
@@ -62,8 +61,7 @@ defmodule BroadwayDashboard do
       pipeline && connected?(socket) ->
         node = socket.assigns.page.node
 
-        with :ok <- Teleporter.teleport_metrics_code(node),
-             :ok <- Metrics.listen(node, self(), pipeline),
+        with :ok <- Metrics.listen(node, self(), pipeline),
              {successful, failed} when is_integer(successful) and is_integer(failed) <-
                Counters.count(node, pipeline) do
           stats = %{
@@ -76,7 +74,7 @@ defmodule BroadwayDashboard do
           {:ok, assign(socket, pipeline: pipeline, stats: stats)}
         else
           _error ->
-            # TODO: maybe log error
+            # TODO: have a better error message
             {:ok, assign(socket, pipeline: nil)}
         end
 
@@ -206,28 +204,49 @@ defmodule BroadwayDashboard do
     )
   end
 
-  defp pipeline_graph_row(node, pipeline) do
-    {:ok, graph} = PipelineGraph.build_layers(node, pipeline)
+  @hint """
+  Each stage of Broadway is represented here by a circle.
+  A greener circle means that the stage is most of the time "free".
+  When the color change to red it means that the process is doing
+  its work.
+  You may want to play with the configuration of your pipeline to
+  find the sweet spot between a high throughput and a lower number of
+  processes in red.
+  """
 
-    hint = """
-    Each stage of Broadway is represented here by a circle.
-    A greener circle means that the stage is most of the time "free".
-    When the color change to red it means that the process is doing
-    its work.
-    You may want to play with the configuration of your pipeline to
-    find the sweet spot between a high throughput and a lower number of
-    processes in red.
-    """
+  defp pipeline_graph_row(node, pipeline) do
+    {:ok, topology} = topology(node, pipeline)
+    {:ok, graph} = build_graph_layers(node, pipeline, topology)
 
     row(
       title: "Graph",
       components: [
         columns(
           components: [
-            {PipelineComponent, [graph: graph, title: "Pipeline", hint: hint]}
+            {PipelineComponent, [graph: graph, title: "Pipeline", hint: @hint]}
           ]
         )
       ]
     )
+  end
+
+  defp build_graph_layers(node, pipeline, topology) do
+    case :rpc.call(node, PipelineGraph, :build_layers, [pipeline, topology]) do
+      {:badrpc, _reason} = error ->
+        {:error, error}
+
+      graph ->
+        {:ok, graph}
+    end
+  end
+
+  defp topology(node, pipeline) do
+    case :rpc.call(node, Broadway, :topology, [pipeline]) do
+      {:badrpc, _reason} = error ->
+        {:error, error}
+
+      topology when is_list(topology) ->
+        {:ok, topology}
+    end
   end
 end

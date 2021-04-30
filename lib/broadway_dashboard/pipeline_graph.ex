@@ -22,26 +22,19 @@ defmodule BroadwayDashboard.PipelineGraph do
               children: []
   end
 
-  def build_layers(node, pipeline) do
-    case :rpc.call(node, __MODULE__, :build_layers_callback, [pipeline]) do
-      {:ok, layer} ->
-        {:ok, layer}
+  @type topology_desc :: %{
+          :name => atom(),
+          :concurrency => pos_integer(),
+          optional(:batcher_name) => atom()
+        }
+  @type topology_item :: {:producers | :processors | :batchers, topology_desc()}
 
-      {:badrpc, _reason} = error ->
-        {:error, error}
-    end
-  end
-
-  # TODO: consider receiving the topology directly here.
-  @spec build_layers_callback(atom()) :: {:ok, %Layer{}}
-  def build_layers_callback(pipeline) do
-    topology = Broadway.topology(pipeline)
-
-    {:ok,
-     calc_span(%Layer{
-       nodes: build_nodes(pipeline, topology[:producers], "prod", false),
-       children: processors_layer(pipeline, topology)
-     })}
+  @spec build_layers(atom(), [topology_item()]) :: %Layer{}
+  def build_layers(pipeline, topology) when is_atom(pipeline) and is_list(topology) do
+    calc_span(%Layer{
+      nodes: build_nodes(pipeline, topology[:producers], "prod", false),
+      children: processors_layer(pipeline, topology)
+    })
   end
 
   defp build_nodes(pipeline, stage_details, label_prefix, show_detail? \\ true) do
