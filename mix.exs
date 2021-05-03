@@ -23,9 +23,9 @@ defmodule BroadwayDashboard.MixProject do
   defp deps do
     [
       {:phoenix_live_dashboard, github: "phoenixframework/phoenix_live_dashboard"},
-      {:broadway, github: "dashbitco/broadway"}
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:broadway, github: "dashbitco/broadway"},
+      {:jason, "~> 1.0", only: [:dev, :test, :docs]},
+      {:floki, "~> 0.27.0", only: :test}
     ]
   end
 end

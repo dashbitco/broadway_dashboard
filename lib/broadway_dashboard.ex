@@ -33,8 +33,12 @@ defmodule BroadwayDashboard do
   # TODO: handle case when there is no process in _capabilities
   # with our pipeline name
   @impl true
-  def menu_link(%{pipelines: _}, _capabilities) do
-    {:ok, @page_title}
+  def menu_link(%{pipelines: pipelines}, capabilities) when is_list(pipelines) do
+    if capabilities.dashboard_running? do
+      {:ok, @page_title}
+    else
+      :skip
+    end
   end
 
   @impl true
@@ -45,16 +49,14 @@ defmodule BroadwayDashboard do
     nav_pipeline =
       if nav && nav != "" do
         to_existing_atom_or_nil(nav)
-      else
-        first_pipeline
       end
 
-    pipeline = Enum.find(pipelines, fn name -> name == nav_pipeline end)
+    pipeline = nav_pipeline && Enum.find(pipelines, fn name -> name == nav_pipeline end)
 
     socket = assign(socket, :pipelines, pipelines)
 
     cond do
-      nav_pipeline && is_nil(pipeline) ->
+      nav && is_nil(pipeline) ->
         to = live_dashboard_path(socket, socket.assigns.page, nav: first_pipeline)
         {:ok, push_redirect(socket, to: to)}
 
