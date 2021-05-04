@@ -38,7 +38,8 @@ defmodule BroadwayDashboardTest do
     {:error, {:live_redirect, %{to: "/dashboard/nonode%40nohost/metrics?nav=ecto"}}} =
       live(build_conn(), "/dashboard/nonode@nohost/metrics")
 
-    {:error, {:live_redirect, %{to: "/dashboard/nonode%40nohost/broadway?nav=Elixir.Demo.Pipeline"}}} =
+    {:error,
+     {:live_redirect, %{to: "/dashboard/nonode%40nohost/broadway?nav=Elixir.Demo.Pipeline"}}} =
       live(build_conn(), "/dashboard/nonode@nohost/broadway")
   end
 

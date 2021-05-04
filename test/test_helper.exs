@@ -112,13 +112,14 @@ end
 
 Application.ensure_all_started(:os_mon)
 
-{:ok, _} = Supervisor.start_link(
-  [
-    Demo.Pipeline,
-    {Phoenix.PubSub, name: Phoenix.LiveDashboardTest.PubSub, adapter: Phoenix.PubSub.PG2},
-    Phoenix.LiveDashboardTest.Endpoint
-  ],
-  strategy: :one_for_one
-)
+{:ok, _} =
+  Supervisor.start_link(
+    [
+      Demo.Pipeline,
+      {Phoenix.PubSub, name: Phoenix.LiveDashboardTest.PubSub, adapter: Phoenix.PubSub.PG2},
+      Phoenix.LiveDashboardTest.Endpoint
+    ],
+    strategy: :one_for_one
+  )
 
 ExUnit.start(exclude: :integration)
