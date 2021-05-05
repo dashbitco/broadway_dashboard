@@ -4,7 +4,6 @@ defmodule BroadwayDashboard.PipelineGraph do
   defmodule Node do
     defstruct data: nil,
               level: 0,
-              index: 0,
               pos: 0.0,
               min: 0.0,
               max: 0.0,
@@ -14,7 +13,6 @@ defmodule BroadwayDashboard.PipelineGraph do
   defmodule Layer do
     defstruct data: nil,
               level: 0,
-              index: 0,
               pos: 0.0,
               min: 0.0,
               max: 0.0,
@@ -115,19 +113,17 @@ defmodule BroadwayDashboard.PipelineGraph do
   defp calc_span(%{children: children} = node, {last_pos, min, max}) do
     level = node.level + 1
 
-    {new_children, _, {new_last_pos, new_min, new_max}} =
-      Enum.reduce(children, {[], 0, {last_pos, min, max}}, fn child,
-                                                              {cur_children, index,
-                                                               {last_pos, min, max}} ->
+    {new_children, {new_last_pos, new_min, new_max}} =
+      Enum.reduce(children, {[], {last_pos, min, max}}, fn child,
+                                                           {cur_children, {last_pos, min, max}} ->
         {{new_last_pos, new_min, new_max}, new_child} =
-          calc_span(%{child | index: index, level: level}, {last_pos, min, max})
+          calc_span(%{child | level: level}, {last_pos, min, max})
 
-        {[new_child | cur_children], index + 1,
-         {new_last_pos, min(min, new_min), max(max, new_max)}}
+        {[new_child | cur_children], {new_last_pos, min(min, new_min), max(max, new_max)}}
       end)
 
-    first_child_pos = List.last(new_children).pos
-    last_child_pos = List.first(new_children).pos
+    [%{pos: first_child_pos} | _] = Enum.reverse(new_children)
+    [%{pos: last_child_pos} | _] = new_children
 
     center_pos = (first_child_pos + last_child_pos) / 2
 
