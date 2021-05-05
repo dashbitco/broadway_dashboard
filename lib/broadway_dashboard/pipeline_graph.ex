@@ -22,6 +22,7 @@ defmodule BroadwayDashboard.PipelineGraph do
               children: []
   end
 
+  # TODO: maybe move type definitions to Broadway.topology/1
   @type topology_desc :: %{
           :name => atom(),
           :concurrency => pos_integer(),
