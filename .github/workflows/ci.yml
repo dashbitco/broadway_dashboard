@@ -41,4 +41,6 @@ jobs:
       - run: mix compile --warnings-as-errors
         if: ${{ matrix.lint }}
 
-      - run: mix test --include integration
+      - run: mix test
+
+      - run: elixir --sname testing -S mix test --only integration

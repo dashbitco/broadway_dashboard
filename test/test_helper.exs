@@ -1,5 +1,5 @@
 Application.put_env(:phoenix_live_dashboard, Phoenix.LiveDashboardTest.Endpoint,
-  url: [host: "localhost", port: 4000],
+  url: [host: "localhost", port: 4002],
   secret_key_base: "Hu4qQN3iKzTV4fJxhorPQlA/osH9fAMtbtjVS58PFgfw3ja5Z18Q/WSNR9wP4OfW",
   live_view: [signing_salt: "hMegieSe"],
   render_errors: [view: Phoenix.LiveDashboardTest.ErrorView],
