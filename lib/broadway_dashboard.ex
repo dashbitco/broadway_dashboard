@@ -30,15 +30,10 @@ defmodule BroadwayDashboard do
     end
   end
 
-  # TODO: handle case when there is no process in _capabilities
-  # with our pipeline name
+  # TODO: handle case when there is no "broadway" app in _capabilities
   @impl true
-  def menu_link(%{pipelines: pipelines}, capabilities) when is_list(pipelines) do
-    if capabilities.dashboard_running? do
-      {:ok, @page_title}
-    else
-      :skip
-    end
+  def menu_link(%{pipelines: pipelines}, _capabilities) when is_list(pipelines) do
+    {:ok, @page_title}
   end
 
   @impl true
