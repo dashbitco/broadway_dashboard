@@ -26,33 +26,39 @@ defmodule BroadwayDashboard.Counters do
   end
 
   def start!(pipeline) do
-    topology = Broadway.topology(pipeline)
+    case Process.whereis(pipeline) do
+      pid when is_pid(pid) ->
+        topology = Broadway.topology(pipeline)
 
-    processes_atomics =
-      Enum.reduce(topology, Map.new(), fn {stage, details}, atomics ->
-        case stage do
-          :batchers ->
-            Enum.reduce(details, atomics, fn batcher, acc ->
-              acc
-              |> put_atomics(batcher.batcher_name)
-              |> put_atomics(batcher.name, batcher.concurrency)
-            end)
+        processes_atomics =
+          Enum.reduce(topology, Map.new(), fn {stage, details}, atomics ->
+            case stage do
+              :batchers ->
+                Enum.reduce(details, atomics, fn batcher, acc ->
+                  acc
+                  |> put_atomics(batcher.batcher_name)
+                  |> put_atomics(batcher.name, batcher.concurrency)
+                end)
 
-          _ ->
-            Enum.reduce(details, atomics, fn stage_detail, acc ->
-              put_atomics(acc, stage_detail.name, stage_detail.concurrency)
-            end)
-        end
-      end)
+              _ ->
+                Enum.reduce(details, atomics, fn stage_detail, acc ->
+                  put_atomics(acc, stage_detail.name, stage_detail.concurrency)
+                end)
+            end
+          end)
 
-    # The counters are used for overall counting.
-    # Successful and error (2).
-    :persistent_term.put(
-      {__MODULE__, pipeline},
-      {:counters.new(2, [:write_concurrency]), processes_atomics}
-    )
+        # The counters are used for overall counting.
+        # Successful and error (2).
+        :persistent_term.put(
+          {__MODULE__, pipeline},
+          {:counters.new(2, [:write_concurrency]), processes_atomics}
+        )
 
-    :ok
+        :ok
+
+      _ ->
+        {:error, :pipeline_is_not_running}
+    end
   end
 
   defp put_atomics(map, name) do
@@ -82,9 +88,13 @@ defmodule BroadwayDashboard.Counters do
   defp put_at(index, pipeline, name, value) do
     atomics = get_processes_atomics(pipeline)
 
-    # TODO: maybe implement fallback to store if doesn't exist
-    process_atomic = Map.fetch!(atomics, name)
-    :atomics.put(process_atomic, index, value)
+    case Map.fetch(atomics, name) do
+      {:ok, process_atomic} ->
+        :atomics.put(process_atomic, index, value)
+
+      :error ->
+        {:error, :stage_not_found}
+    end
   end
 
   def get_start(pipeline, name) do

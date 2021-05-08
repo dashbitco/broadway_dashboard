@@ -30,8 +30,6 @@ defmodule BroadwayDashboard.Telemetry do
     BroadwayDashboard.Metrics.ensure_counters_restarted(metadata.config[:name])
   end
 
-  # Note that `self()` inside `handle_event/4` is the process that is
-  # dispatching the event inside Broadway.
   def handle_event([:broadway, stage, :start], measurements, metadata, _)
       when stage in @measurable_start_stages do
     measure_start(measurements, metadata)
