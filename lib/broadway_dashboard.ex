@@ -9,9 +9,10 @@ defmodule BroadwayDashboard do
   alias BroadwayDashboard.PipelineGraph
   alias BroadwayDashboard.LiveDashboard.PipelineComponent
 
+  @minimum_broadway_version "0.7.0-dev"
+
   # TODO: update link
   @disabled_link "https://hexdocs.pm/broadway_dashboard"
-
   @page_title "Broadway pipelines"
 
   @impl true
@@ -58,7 +59,8 @@ defmodule BroadwayDashboard do
       pipeline && connected?(socket) ->
         node = socket.assigns.page.node
 
-        with :ok <- Metrics.listen(node, self(), pipeline),
+        with :ok <- check_broadway_version(node),
+             :ok <- Metrics.listen(node, self(), pipeline),
              {successful, failed} when is_integer(successful) and is_integer(failed) <-
                Counters.count(node, pipeline) do
           stats = %{
@@ -225,6 +227,23 @@ defmodule BroadwayDashboard do
         )
       ]
     )
+  end
+
+  defp check_broadway_version(node) do
+    case :rpc.call(node, Application, :spec, [:broadway, :vsn]) do
+      {:badrpc, _reason} = error ->
+        {:error, error}
+
+      vsn when is_list(vsn) ->
+        if Version.compare(to_string(vsn), @minimum_broadway_version) in [:gt, :eq] do
+          :ok
+        else
+          {:error, :version_is_not_enough}
+        end
+
+      nil ->
+        {:error, :broadway_is_not_loaded}
+    end
   end
 
   defp build_graph_layers(node, pipeline, topology) do
