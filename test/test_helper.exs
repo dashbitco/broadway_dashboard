@@ -122,4 +122,7 @@ Application.ensure_all_started(:os_mon)
     strategy: :one_for_one
   )
 
-ExUnit.start(exclude: :integration)
+exclude =
+  if Node.alive?, do: [], else: [distribution: true]
+
+ExUnit.start(exclude: exclude)

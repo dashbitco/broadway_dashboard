@@ -16,12 +16,12 @@ defmodule BroadwayDashboard.TeleporterTest do
     [node_name: :"#{name}@#{hostname}"]
   end
 
-  @tag :integration
+  @tag :distribution
   test "teleport_metrics_code/1 to a running node", %{node_name: node_name} do
     assert :ok = BroadwayDashboard.Teleporter.teleport_metrics_code(node_name)
   end
 
-  @tag :integration
+  @tag :distribution
   test "teleport_metrics_code/1 to a node that is down" do
     host = current_hostname!()
 
@@ -31,7 +31,7 @@ defmodule BroadwayDashboard.TeleporterTest do
 
   defp current_hostname! do
     unless Node.alive?() do
-      raise "for running integration tests you must start with a node name and cookie"
+      raise "for running distribution tests you must start with a node name and cookie"
     end
 
     [_, hostname] = Node.self() |> Atom.to_string() |> String.split("@")
