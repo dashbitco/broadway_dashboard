@@ -21,43 +21,51 @@ defmodule BroadwayDashboard.Counters do
     if :persistent_term.get({__MODULE__, pipeline}, nil) do
       :already_started
     else
-      start!(pipeline)
+      do_start_pipeline(pipeline)
     end
   end
 
   def start!(pipeline) do
-    case Process.whereis(pipeline) do
-      pid when is_pid(pid) ->
-        topology = Broadway.topology(pipeline)
-
-        processes_atomics =
-          Enum.reduce(topology, Map.new(), fn {stage, details}, atomics ->
-            case stage do
-              :batchers ->
-                Enum.reduce(details, atomics, fn batcher, acc ->
-                  acc
-                  |> put_atomics(batcher.batcher_name)
-                  |> put_atomics(batcher.name, batcher.concurrency)
-                end)
-
-              _ ->
-                Enum.reduce(details, atomics, fn stage_detail, acc ->
-                  put_atomics(acc, stage_detail.name, stage_detail.concurrency)
-                end)
-            end
-          end)
-
-        # The counters are used for overall counting.
-        # Successful and error (2).
-        :persistent_term.put(
-          {__MODULE__, pipeline},
-          {:counters.new(2, [:write_concurrency]), processes_atomics}
-        )
-
+    case do_start_pipeline(pipeline) do
+      :ok ->
         :ok
 
-      _ ->
-        {:error, :pipeline_is_not_running}
+      {:error, :pipeline_is_not_running} ->
+        raise ArgumentError, "pipeline is not running: #{inspect(pipeline)}"
+    end
+  end
+
+  defp do_start_pipeline(pipeline) do
+    if Process.whereis(pipeline) do
+      topology = Broadway.topology(pipeline)
+
+      processes_atomics =
+        Enum.reduce(topology, Map.new(), fn {stage, details}, atomics ->
+          case stage do
+            :batchers ->
+              Enum.reduce(details, atomics, fn batcher, acc ->
+                acc
+                |> put_atomics(batcher.batcher_name)
+                |> put_atomics(batcher.name, batcher.concurrency)
+              end)
+
+            _ ->
+              Enum.reduce(details, atomics, fn stage_detail, acc ->
+                put_atomics(acc, stage_detail.name, stage_detail.concurrency)
+              end)
+          end
+        end)
+
+      # The counters are used for overall counting.
+      # Successful and error (2).
+      :persistent_term.put(
+        {__MODULE__, pipeline},
+        {:counters.new(2, [:write_concurrency]), processes_atomics}
+      )
+
+      :ok
+    else
+      {:error, :pipeline_is_not_running}
     end
   end
 

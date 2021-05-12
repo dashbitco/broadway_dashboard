@@ -61,6 +61,14 @@ defmodule BroadwayDashboard.CountersTest do
     assert :ok = Counters.start!(broadway)
   end
 
+  test "start!/1 raises if pipeline is not running" do
+    broadway = new_unique_name()
+
+    assert_raise ArgumentError, "pipeline is not running: #{inspect(broadway)}", fn ->
+      Counters.start!(broadway)
+    end
+  end
+
   test "put_start/3 stores the last started time for a stage" do
     broadway = new_unique_name()
 
