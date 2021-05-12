@@ -5,6 +5,7 @@ defmodule BroadwayDashboard.Teleporter do
     BroadwayDashboard.Counters,
     BroadwayDashboard.Metrics,
     BroadwayDashboard.PipelineGraph,
+    BroadwayDashboard.Listeners,
     BroadwayDashboard.Telemetry
   ]
 

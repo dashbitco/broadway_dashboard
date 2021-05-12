@@ -5,6 +5,9 @@ defmodule BroadwayDashboard.Metrics do
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Telemetry
   alias BroadwayDashboard.Teleporter
+  alias BroadwayDashboard.Listeners
+
+  @default_interval 1_000
 
   # It does polling every 1 second for new metrics from
   # pipelines to pages listening for events.
@@ -58,8 +61,9 @@ defmodule BroadwayDashboard.Metrics do
   def init(opts) do
     Process.flag(:trap_exit, true)
 
-    timer = Process.send_after(self(), :refresh, 1_000)
-    state = %{listeners: %{}, refs: MapSet.new(), timer: timer}
+    interval = opts[:interval] || @default_interval
+    timer = Process.send_after(self(), :refresh, interval)
+    state = %{listeners: %{}, refs: MapSet.new(), timer: timer, interval: interval}
 
     from_node = opts[:from_node]
 
@@ -90,12 +94,7 @@ defmodule BroadwayDashboard.Metrics do
       pid when is_pid(pid) ->
         ref = Process.monitor(parent)
 
-        pipeline_listeners =
-          state.listeners
-          |> Map.get(pipeline, MapSet.new())
-          |> MapSet.put(parent)
-
-        listeners = Map.put(state.listeners, pipeline, pipeline_listeners)
+        listeners = Listeners.add(state.listeners, pipeline, parent)
 
         # This is no-op if the pipeline was started already
         Counters.start(pipeline)
@@ -127,19 +126,7 @@ defmodule BroadwayDashboard.Metrics do
 
   @impl true
   def handle_info({:DOWN, ref, _, pid, _}, %{refs: refs} = state) do
-    listeners =
-      state.listeners
-      |> Enum.map(fn {pipeline, pids_set} ->
-        pids_set =
-          if MapSet.member?(pids_set, pid) do
-            MapSet.delete(pids_set, pid)
-          else
-            pids_set
-          end
-
-        {pipeline, pids_set}
-      end)
-      |> Map.new()
+    listeners = Listeners.remove(state.listeners, pid)
 
     {:noreply, %{state | refs: MapSet.delete(refs, ref), listeners: listeners}}
   end
