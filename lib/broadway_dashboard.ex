@@ -23,22 +23,20 @@ defmodule BroadwayDashboard do
   end
 
   @impl true
-  def menu_link(%{pipelines: []}, _capabilities) do
-    if Code.ensure_loaded?(Broadway) do
-      {:disabled, @page_title, @disabled_link}
-    else
-      :skip
-    end
-  end
+  def menu_link(%{pipelines: pipelines}, _capabilities) do
+    case pipelines do
+      [] ->
+        {:disabled, @page_title, @disabled_link}
 
-  # TODO: handle case when there is no "broadway" app in _capabilities
-  @impl true
-  def menu_link(%{pipelines: pipelines}, _capabilities) when is_list(pipelines) do
-    {:ok, @page_title}
+      [_ | _] ->
+        {:ok, @page_title}
+    end
   end
 
   @impl true
   def mount(params, %{pipelines: pipelines}, socket) do
+    socket = assign(socket, :pipelines, pipelines)
+
     nav = params["nav"]
     [first_pipeline | _] = pipelines
 
@@ -48,8 +46,6 @@ defmodule BroadwayDashboard do
       end
 
     pipeline = nav_pipeline && Enum.find(pipelines, fn name -> name == nav_pipeline end)
-
-    socket = assign(socket, :pipelines, pipelines)
 
     cond do
       nav && is_nil(pipeline) ->
@@ -214,14 +210,14 @@ defmodule BroadwayDashboard do
 
   defp pipeline_graph_row(node, pipeline) do
     {:ok, topology} = topology(node, pipeline)
-    {:ok, graph} = build_graph_layers(node, pipeline, topology)
+    {:ok, layers} = build_graph_layers(node, pipeline, topology)
 
     row(
       title: "Graph",
       components: [
         columns(
           components: [
-            {PipelineGraphComponent, [graph: graph, title: "Pipeline", hint: @hint]}
+            {PipelineGraphComponent, [layers: layers, title: "Pipeline", hint: @hint]}
           ]
         )
       ]
@@ -250,8 +246,8 @@ defmodule BroadwayDashboard do
       {:badrpc, _reason} = error ->
         {:error, error}
 
-      graph ->
-        {:ok, graph}
+      layers ->
+        {:ok, layers}
     end
   end
 

@@ -1,6 +1,8 @@
 defmodule BroadwayDashboard.PipelineGraphComponentTest do
   use ExUnit.Case, async: true
 
+  # TODO: move this test to PhoenixLiveDashboard project
+  #
   import Phoenix.LiveViewTest
   @endpoint Phoenix.LiveDashboardTest.Endpoint
 
@@ -10,11 +12,11 @@ defmodule BroadwayDashboard.PipelineGraphComponentTest do
   test "renders a basic pipeline" do
     title = "my pipeline"
     hint = "a Broadway pipeline represented as a graph"
-    graph = build_layers()
+    layers = build_layers()
 
     content =
       render_component(PipelineGraphComponent,
-        graph: graph,
+        layers: layers,
         hint: hint,
         title: title
       )
@@ -53,7 +55,7 @@ defmodule BroadwayDashboard.PipelineGraphComponentTest do
               },
               level: 0
             }
-          ],
+          ]
         }
       ],
       level: 0,

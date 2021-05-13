@@ -22,7 +22,7 @@ defmodule BroadwayDashboard.BroadwaySupport do
       name: name,
       context: %{test_pid: self()},
       producer: [module: {Broadway.DummyProducer, []}],
-      processors: [default: [concurrency: 10]],
+      processors: [default: [concurrency: 5]],
       batchers: [default: [concurrency: 2], s3: [concurrency: 3]]
     )
 

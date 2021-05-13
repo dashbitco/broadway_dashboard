@@ -4,6 +4,8 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   @default_width 1200
   @default_height 610
 
+  # TODO: move this module to PhoenixLiveDashboard project
+
   defmodule Layer do
     defstruct level: 0,
               pos: 0.0,
@@ -37,7 +39,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
 
   @impl true
   def render(assigns) do
-    graph = assigns.graph
+    layers = assigns.layers
     opts = Map.get(assigns, :opts, [])
 
     r = opts[:r] || 42
@@ -45,10 +47,10 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     d = r + r
     w_gap = opts[:w_gap] || 20
     box_width = opts[:width] || @default_width
-    base_width = (graph.max - graph.min) * (d + w_gap)
+    base_width = (layers.max - layers.min) * (d + w_gap)
 
     margin_left =
-      Enum.max([box_width, base_width]) / 2 - base_width / 2 + abs(graph.min) * (d + w_gap) - r
+      Enum.max([box_width, base_width]) / 2 - base_width / 2 + abs(layers.min) * (d + w_gap) - r
 
     opts = %{
       r: r,
@@ -62,7 +64,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     }
 
     {circles, arrows} =
-      graph
+      layers
       |> build(opts)
       |> Enum.split_with(fn el -> match?(%Circle{}, el) end)
 
@@ -243,10 +245,8 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   end
 
   defp arrow({px, py}, node, opts) do
-    %{level: level, pos: pos} = node
-
-    x = (opts.d + opts.w_gap) * pos + opts.r + opts.margin_left
-    y = (opts.d + opts.h_gap) * level + opts.r + opts.margin_top
+    x = (opts.d + opts.w_gap) * node.pos + opts.r + opts.margin_left
+    y = (opts.d + opts.h_gap) * node.level + opts.r + opts.margin_top
 
     arrow({px, py}, {x, y}, opts)
   end

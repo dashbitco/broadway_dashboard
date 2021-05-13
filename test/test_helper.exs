@@ -87,7 +87,7 @@ defmodule Phoenix.LiveDashboardTest.Router do
     live_dashboard("/dashboard",
       metrics: Phoenix.LiveDashboardTest.Telemetry,
       additional_pages: [
-        broadway: {BroadwayDashboard, pipelines: [Demo.Pipeline]}
+        broadway: {BroadwayDashboard, pipelines: [Demo.Pipeline, MyDummy]}
       ]
     )
   end

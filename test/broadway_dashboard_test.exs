@@ -32,12 +32,12 @@ defmodule BroadwayDashboardTest do
   end
 
   test "redirects to the first pipeline if no pipeline is provided keeping node" do
-    {:error, {:live_redirect, %{to: "/dashboard/nonode%40nohost/metrics?nav=ecto"}}} =
-      live(build_conn(), "/dashboard/nonode@nohost/metrics")
+    base_path = URI.encode("/dashboard/#{node()}/broadway", &(&1 != ?@))
 
-    {:error,
-     {:live_redirect, %{to: "/dashboard/nonode%40nohost/broadway?nav=Elixir.Demo.Pipeline"}}} =
-      live(build_conn(), "/dashboard/nonode@nohost/broadway")
+    path_with_node_and_pipeline = "#{base_path}?nav=Elixir.Demo.Pipeline"
+
+    {:error, {:live_redirect, %{to: ^path_with_node_and_pipeline}}} =
+      live(build_conn(), base_path)
   end
 
   test "shows the pipeline" do
@@ -61,8 +61,8 @@ defmodule BroadwayDashboardTest do
     assert rendered =~ "s3_0"
     assert rendered =~ "s3_2"
 
-    assert rendered =~ ~s|<div class="banner-card-value">0</div>|
-    refute rendered =~ ~s|<div class="banner-card-value">1</div>|
+    assert has_element?(live, ".banner-card-value", "0")
+    refute has_element?(live, ".banner-card-value", "1")
 
     # Send a message
     ref = Broadway.test_message(Demo.Pipeline, "hello world")
@@ -71,9 +71,14 @@ defmodule BroadwayDashboardTest do
     # Ensure the page updates it's state
     send(live.pid, {:refresh_stats, Demo.Pipeline})
 
-    # Guarantees the message above has been processed
+    assert has_element?(live, ".banner-card-value", "1")
+  end
+
+  test "renders an error message when pipeline does not exist" do
+    {:ok, live, _} = live(build_conn(), "/dashboard/broadway?nav=Elixir.MyDummy")
+
     rendered = render(live)
 
-    assert rendered =~ ~s|<div class="banner-card-value">1</div>|
+    assert rendered =~ "This pipeline is not available for this node."
   end
 end
