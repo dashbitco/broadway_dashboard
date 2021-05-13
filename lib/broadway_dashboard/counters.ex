@@ -168,4 +168,8 @@ defmodule BroadwayDashboard.Counters do
       {:error, :counters_not_found}
     end
   end
+
+  def erase(pipeline) do
+    :persistent_term.erase({__MODULE__, pipeline})
+  end
 end

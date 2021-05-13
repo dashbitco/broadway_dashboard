@@ -146,6 +146,10 @@ defmodule BroadwayDashboard.Metrics do
     Process.cancel_timer(state.timer)
     Telemetry.detach(self())
 
+    state.listeners
+    |> Map.keys()
+    |> Enum.map(fn pipeline -> Counters.erase(pipeline) end)
+
     :ok
   end
 end
