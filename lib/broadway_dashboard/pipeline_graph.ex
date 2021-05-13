@@ -43,7 +43,7 @@ defmodule BroadwayDashboard.PipelineGraph do
     end)
     |> Enum.with_index()
     |> Enum.map(fn {name, idx} ->
-      factor = Counters.get_processing_factor(pipeline, name)
+      {:ok, factor} = Counters.fetch_processing_factor(pipeline, name)
 
       %Node{
         data: %{
@@ -71,7 +71,7 @@ defmodule BroadwayDashboard.PipelineGraph do
     batchers
     |> Enum.sort_by(fn batcher -> batcher.batcher_name end)
     |> Enum.map(fn batcher ->
-      factor = Counters.get_processing_factor(pipeline, batcher.batcher_name)
+      {:ok, factor} = Counters.fetch_processing_factor(pipeline, batcher.batcher_name)
 
       "batcher_" <> label = short_label(batcher.batcher_name)
 

@@ -94,68 +94,78 @@ defmodule BroadwayDashboard.Counters do
   end
 
   defp put_at(index, pipeline, name, value) do
-    atomics = get_processes_atomics(pipeline)
-
-    case Map.fetch(atomics, name) do
-      {:ok, process_atomic} ->
-        :atomics.put(process_atomic, index, value)
-
+    with {:ok, atomics} <- fetch_atomics(pipeline),
+         {:ok, process_atomic} <- Map.fetch(atomics, name) do
+      :atomics.put(process_atomic, index, value)
+    else
       :error ->
         {:error, :stage_not_found}
+
+      {:error, _} = error ->
+        error
     end
   end
 
-  def get_start(pipeline, name) do
-    get_at(1, pipeline, name)
+  def fetch_start(pipeline, name) do
+    fetch_at(1, pipeline, name)
   end
 
-  def get_end(pipeline, name) do
-    get_at(2, pipeline, name)
+  def fetch_end(pipeline, name) do
+    fetch_at(2, pipeline, name)
   end
 
-  def get_processing_factor(pipeline, name) do
-    get_at(3, pipeline, name)
+  def fetch_processing_factor(pipeline, name) do
+    fetch_at(3, pipeline, name)
   end
 
-  defp get_at(index, pipeline, name) do
-    atomics = get_processes_atomics(pipeline)
+  defp fetch_at(index, pipeline, name) do
+    with {:ok, atomics} <- fetch_atomics(pipeline),
+         {:ok, process_atomic} <- Map.fetch(atomics, name) do
+      {:ok, :atomics.get(process_atomic, index)}
+    else
+      :error ->
+        {:error, :stage_not_found}
 
-    # TODO: maybe implement fallback to store if doesn't exist
-    process_atomic = Map.fetch!(atomics, name)
-    :atomics.get(process_atomic, index)
+      {:error, _} = error ->
+        error
+    end
   end
 
-  defp get_processes_atomics(pipeline) do
-    {_, atomics} = :persistent_term.get({__MODULE__, pipeline})
+  defp fetch_atomics(pipeline) do
+    {_, atomics} = :persistent_term.get({__MODULE__, pipeline}, {nil, nil})
 
-    atomics
+    if atomics do
+      {:ok, atomics}
+    else
+      {:error, :counters_not_found}
+    end
   end
 
   def incr(pipeline, successes, fails) do
-    counters_ref = get_counters(pipeline)
+    with {:ok, counters_ref} <- fetch_counters(pipeline) do
+      :counters.add(counters_ref, @successful_col, successes)
+      :counters.add(counters_ref, @failed_col, fails)
 
-    :counters.add(counters_ref, @successful_col, successes)
-    :counters.add(counters_ref, @failed_col, fails)
-
-    :ok
+      :ok
+    end
   end
 
-  def count(node, pipeline) do
-    :rpc.call(node, __MODULE__, :count_callback, [pipeline])
+  def count(pipeline) do
+    with {:ok, counters_ref} <- fetch_counters(pipeline) do
+      successful = :counters.get(counters_ref, @successful_col)
+      failed = :counters.get(counters_ref, @failed_col)
+
+      {:ok, {successful, failed}}
+    end
   end
 
-  def count_callback(pipeline) do
-    counters_ref = get_counters(pipeline)
+  defp fetch_counters(pipeline) do
+    {counters_ref, _} = :persistent_term.get({__MODULE__, pipeline}, {nil, nil})
 
-    successful = :counters.get(counters_ref, @successful_col)
-    failed = :counters.get(counters_ref, @failed_col)
-
-    {successful, failed}
-  end
-
-  defp get_counters(pipeline) do
-    {counters_ref, _} = :persistent_term.get({__MODULE__, pipeline})
-
-    counters_ref
+    if counters_ref do
+      {:ok, counters_ref}
+    else
+      {:error, :counters_not_found}
+    end
   end
 end

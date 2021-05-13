@@ -61,8 +61,7 @@ defmodule BroadwayDashboard do
 
         with :ok <- check_broadway_version(node),
              :ok <- Metrics.listen(node, self(), pipeline),
-             {successful, failed} when is_integer(successful) and is_integer(failed) <-
-               Counters.count(node, pipeline) do
+             {:ok, {successful, failed}} <- count(node, pipeline) do
           stats = %{
             successful: successful,
             failed: failed,
@@ -101,7 +100,7 @@ defmodule BroadwayDashboard do
       node = socket.assigns.page.node
 
       previous_stats = socket.assigns.stats
-      {successful, failed} = Counters.count(node, pipeline)
+      {:ok, {successful, failed}} = count(node, pipeline)
 
       stats = %{
         successful: successful,
@@ -263,6 +262,16 @@ defmodule BroadwayDashboard do
 
       topology when is_list(topology) ->
         {:ok, topology}
+    end
+  end
+
+  defp count(node, pipeline) do
+    case :rpc.call(node, Counters, :count, [pipeline]) do
+      {:badrpc, _reason} = error ->
+        {:error, error}
+
+      result ->
+        result
     end
   end
 end

@@ -7,6 +7,7 @@ defmodule BroadwayDashboard.MixProject do
       version: "0.1.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
+      elixirc_paths: elixirc_paths(Mix.env()),
       aliases: aliases(),
       deps: deps()
     ]
@@ -35,4 +36,8 @@ defmodule BroadwayDashboard.MixProject do
   defp aliases do
     [dev: "run --no-halt dev.exs"]
   end
+
+  # Specifies which paths to compile per environment.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 end

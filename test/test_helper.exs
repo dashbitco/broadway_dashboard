@@ -122,7 +122,6 @@ Application.ensure_all_started(:os_mon)
     strategy: :one_for_one
   )
 
-exclude =
-  if Node.alive?, do: [], else: [distribution: true]
+exclude = if Node.alive?(), do: [], else: [distribution: true]
 
 ExUnit.start(exclude: exclude)

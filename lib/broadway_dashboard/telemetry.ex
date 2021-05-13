@@ -42,11 +42,12 @@ defmodule BroadwayDashboard.Telemetry do
   def handle_event([:broadway, :processor, :stop], measurements, metadata, _) do
     # Here we measure only because it can occur a failure or
     # we don't have batchers and we "Ack" in the processor.
-    Counters.incr(
-      pipeline_name(metadata.name),
-      length(metadata.successful_messages_to_ack),
-      length(metadata.failed_messages)
-    )
+    :ok =
+      Counters.incr(
+        pipeline_name(metadata.name),
+        length(metadata.successful_messages_to_ack),
+        length(metadata.failed_messages)
+      )
 
     measure_stop(measurements, metadata)
   end
@@ -75,25 +76,21 @@ defmodule BroadwayDashboard.Telemetry do
   end
 
   defp measure_start(measurements, metadata) do
-    Counters.put_start(pipeline_name(metadata.name), metadata.name, measurements.time)
-
-    :ok
+    :ok = Counters.put_start(pipeline_name(metadata.name), metadata.name, measurements.time)
   end
 
   defp measure_stop(measurements, metadata) do
     pipeline = pipeline_name(metadata.name)
     name = metadata.name
 
-    start_time = Counters.get_start(pipeline, name)
-    last_end_time = Counters.get_end(pipeline, name)
+    {:ok, start_time} = Counters.fetch_start(pipeline, name)
+    {:ok, last_end_time} = Counters.fetch_end(pipeline, name)
 
     idle_time = start_time - last_end_time
     processing_factor = round(measurements.duration / (idle_time + measurements.duration) * 100)
 
-    Counters.put_end(pipeline, name, measurements.time)
-    Counters.put_processing_factor(pipeline, name, processing_factor)
-
-    :ok
+    :ok = Counters.put_end(pipeline, name, measurements.time)
+    :ok = Counters.put_processing_factor(pipeline, name, processing_factor)
   end
 
   defp pipeline_name(name) do
