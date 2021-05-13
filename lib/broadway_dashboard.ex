@@ -67,9 +67,9 @@ defmodule BroadwayDashboard do
 
           {:ok, assign(socket, pipeline: pipeline, stats: stats)}
         else
-          _error ->
+          {:error, error} ->
             # TODO: have a better error message
-            {:ok, assign(socket, pipeline: nil)}
+            {:ok, assign(socket, pipeline: nil, error: error)}
         end
 
       first_pipeline && is_nil(nav_pipeline) ->
@@ -77,7 +77,7 @@ defmodule BroadwayDashboard do
         {:ok, push_redirect(socket, to: to)}
 
       true ->
-        {:ok, assign(socket, pipeline: nil)}
+        {:ok, assign(socket, pipeline: nil, error: :pipeline_not_found)}
     end
   end
 
@@ -127,29 +127,44 @@ defmodule BroadwayDashboard do
     name
   end
 
+  defp render_pipeline(%{error: _} = assigns) do
+    error_message =
+      case assigns.error do
+        :pipeline_not_found ->
+          "This pipeline is not available for this node."
+
+        :pipeline_is_not_running ->
+          "This pipeline is not running on this node."
+
+        :version_is_not_enough ->
+          "Broadway is outdated on remote node. Minimum version required is #{@minimum_broadway_version}"
+
+        {:badrpc, _} ->
+          "Could not send request to node. Try again later."
+      end
+
+    row(
+      components: [
+        columns(
+          components: [
+            card(value: error_message)
+          ]
+        )
+      ]
+    )
+  end
+
   defp render_pipeline(assigns) do
-    if assigns.pipeline do
-      row(
-        components: [
-          columns(
-            components: [
-              pipeline_throughput_row(assigns.stats)
-            ]
-          ),
-          columns(components: [pipeline_graph_row(assigns.page.node, assigns.pipeline)])
-        ]
-      )
-    else
-      row(
-        components: [
-          columns(
-            components: [
-              card(value: "This pipeline is not available for this node.")
-            ]
-          )
-        ]
-      )
-    end
+    row(
+      components: [
+        columns(
+          components: [
+            pipeline_throughput_row(assigns.stats)
+          ]
+        ),
+        columns(components: [pipeline_graph_row(assigns.page.node, assigns.pipeline)])
+      ]
+    )
   end
 
   defp pipeline_throughput_row(stats) do

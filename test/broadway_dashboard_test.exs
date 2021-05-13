@@ -1,5 +1,5 @@
 defmodule BroadwayDashboardTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   import Phoenix.ConnTest
   import Phoenix.LiveViewTest
@@ -80,5 +80,24 @@ defmodule BroadwayDashboardTest do
     rendered = render(live)
 
     assert rendered =~ "This pipeline is not available for this node."
+  end
+
+  @tag distribution: true
+  test "renders an error message when broadway is outdated on remote node" do
+    node_info =
+      BroadwayDashboard.DistributionSupport.setup_support_project!(
+        "dummy_broadway_app_with_outdated_broadway.exs"
+      )
+
+    remote_node = node_info[:node_name]
+
+    Node.connect(remote_node)
+
+    base_path = URI.encode("/dashboard/#{remote_node}/broadway", &(&1 != ?@))
+    {:ok, live, _} = live(build_conn(), "#{base_path}?nav=Elixir.MyDummyOutdated")
+
+    rendered = render(live)
+
+    assert rendered =~ "Broadway is outdated on remote node."
   end
 end

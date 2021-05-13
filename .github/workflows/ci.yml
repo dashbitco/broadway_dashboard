@@ -43,4 +43,4 @@ jobs:
 
       - run: mix test
 
-      - run: elixir --sname testing -S mix test --only integration
+      - run: elixir --sname testing -S mix test
