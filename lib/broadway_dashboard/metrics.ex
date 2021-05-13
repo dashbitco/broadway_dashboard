@@ -113,13 +113,13 @@ defmodule BroadwayDashboard.Metrics do
 
   @impl true
   def handle_info(:refresh, state) do
-    Enum.each(state.listeners, fn {pipeline, listeners} ->
-      Enum.each(listeners, fn pid ->
+    Enum.map(state.listeners, fn {pipeline, listeners} ->
+      Enum.map(listeners, fn pid ->
         send(pid, {:refresh_stats, pipeline})
       end)
     end)
 
-    timer = Process.send_after(self(), :refresh, 1_000)
+    timer = Process.send_after(self(), :refresh, state.interval)
 
     {:noreply, %{state | timer: timer}}
   end
