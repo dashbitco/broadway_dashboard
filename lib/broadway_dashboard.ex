@@ -7,7 +7,7 @@ defmodule BroadwayDashboard do
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Metrics
   alias BroadwayDashboard.PipelineGraph
-  alias BroadwayDashboard.LiveDashboard.PipelineComponent
+  alias BroadwayDashboard.LiveDashboard.PipelineGraphComponent
 
   @minimum_broadway_version "0.7.0-dev"
 
@@ -221,7 +221,7 @@ defmodule BroadwayDashboard do
       components: [
         columns(
           components: [
-            {PipelineComponent, [graph: graph, title: "Pipeline", hint: @hint]}
+            {PipelineGraphComponent, [graph: graph, title: "Pipeline", hint: @hint]}
           ]
         )
       ]

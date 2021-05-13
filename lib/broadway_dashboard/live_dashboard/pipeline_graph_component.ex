@@ -1,12 +1,11 @@
-defmodule BroadwayDashboard.LiveDashboard.PipelineComponent do
+defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   use Phoenix.LiveDashboard.Web, :live_component
 
   @default_width 1200
   @default_height 610
 
   defmodule Layer do
-    defstruct data: nil,
-              level: 0,
+    defstruct level: 0,
               pos: 0.0,
               min: 0.0,
               max: 0.0,
@@ -15,7 +14,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineComponent do
   end
 
   defmodule Node do
-    defstruct data: nil,
+    defstruct data: %{},
               level: 0,
               pos: 0.0,
               min: 0.0,

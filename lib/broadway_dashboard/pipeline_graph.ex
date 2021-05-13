@@ -1,7 +1,7 @@
 defmodule BroadwayDashboard.PipelineGraph do
   alias BroadwayDashboard.Counters
 
-  alias BroadwayDashboard.LiveDashboard.PipelineComponent.{Layer, Node}
+  alias BroadwayDashboard.LiveDashboard.PipelineGraphComponent.{Layer, Node}
 
   # TODO: maybe move type definitions to Broadway.topology/1
   @type topology_desc :: %{
