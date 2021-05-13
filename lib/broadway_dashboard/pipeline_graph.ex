@@ -1,24 +1,7 @@
 defmodule BroadwayDashboard.PipelineGraph do
   alias BroadwayDashboard.Counters
 
-  defmodule Node do
-    defstruct data: nil,
-              level: 0,
-              pos: 0.0,
-              min: 0.0,
-              max: 0.0,
-              children: []
-  end
-
-  defmodule Layer do
-    defstruct data: nil,
-              level: 0,
-              pos: 0.0,
-              min: 0.0,
-              max: 0.0,
-              nodes: [],
-              children: []
-  end
+  alias BroadwayDashboard.LiveDashboard.PipelineComponent.{Layer, Node}
 
   # TODO: maybe move type definitions to Broadway.topology/1
   @type topology_desc :: %{

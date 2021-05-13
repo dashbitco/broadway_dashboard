@@ -1,11 +1,27 @@
 defmodule BroadwayDashboard.LiveDashboard.PipelineComponent do
   use Phoenix.LiveDashboard.Web, :live_component
 
-  alias BroadwayDashboard.PipelineGraph.Node
-  alias BroadwayDashboard.PipelineGraph.Layer
-
   @default_width 1200
   @default_height 610
+
+  defmodule Layer do
+    defstruct data: nil,
+              level: 0,
+              pos: 0.0,
+              min: 0.0,
+              max: 0.0,
+              nodes: [],
+              children: []
+  end
+
+  defmodule Node do
+    defstruct data: nil,
+              level: 0,
+              pos: 0.0,
+              min: 0.0,
+              max: 0.0,
+              children: []
+  end
 
   defmodule Arrow do
     defstruct [:x1, :y1, :x2, :y2]
@@ -174,8 +190,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineComponent do
 
   defp background(node_data) do
     # This calculation is defining the Hue portion of the HSL color function.
-    # By definition, the value 0 is red and the value 120 is green. We therefore
-    # control the variation of these two colors.
+    # By definition, the value 0 is red and the value 120 is green.
     # See: https://developer.mozilla.org/en-US/docs/Web/CSS/color_value#hsl_colors
     if node_data.show_detail? do
       hue = 100 - node_data.detail

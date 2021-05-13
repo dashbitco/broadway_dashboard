@@ -3,7 +3,7 @@ defmodule BroadwayDashboard.PipelineGraphTest do
 
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.PipelineGraph
-  alias BroadwayDashboard.PipelineGraph.{Node, Layer}
+  alias BroadwayDashboard.LiveDashboard.PipelineComponent.{Layer, Node}
 
   defmodule Forwarder do
     use Broadway
