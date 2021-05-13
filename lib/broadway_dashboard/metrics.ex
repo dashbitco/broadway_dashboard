@@ -46,7 +46,7 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   def ensure_counters_restarted(pipeline) do
-    GenServer.cast(__MODULE__, {:ensure_counters_restarted, pipeline})
+    GenServer.call(__MODULE__, {:ensure_counters_restarted, pipeline})
   end
 
   def start_link(opts) do
@@ -62,30 +62,35 @@ defmodule BroadwayDashboard.Metrics do
     Process.flag(:trap_exit, true)
 
     interval = opts[:interval] || @default_interval
-    timer = Process.send_after(self(), :refresh, interval)
-    state = %{listeners: %{}, refs: MapSet.new(), timer: timer, interval: interval}
 
-    from_node = opts[:from_node]
+    state = %{
+      listeners: %{},
+      refs: MapSet.new(),
+      interval: interval,
+      mode: opts[:refresh_mode],
+      from_node: opts[:from_node]
+    }
 
-    state =
-      if is_nil(from_node) do
-        state
-      else
-        :net_kernel.monitor_nodes(true, node_type: :all)
+    if state.from_node do
+      :net_kernel.monitor_nodes(true, node_type: :all)
+    end
 
-        Map.put(state, :from_node, from_node)
-      end
+    {:ok, Map.put(state, :timer, maybe_schedule_refresh(state))}
+  end
 
-    {:ok, state}
+  defp maybe_schedule_refresh(state) do
+    unless state.mode == :manual do
+      Process.send_after(self(), :refresh, state.interval)
+    end
   end
 
   @impl true
-  def handle_cast({:ensure_counters_restarted, pipeline}, state) do
+  def handle_call({:ensure_counters_restarted, pipeline}, _, state) do
     if Map.get(state.listeners, pipeline) do
       Counters.start!(pipeline)
     end
 
-    {:noreply, state}
+    {:reply, :ok, state}
   end
 
   @impl true
@@ -119,9 +124,7 @@ defmodule BroadwayDashboard.Metrics do
       end)
     end)
 
-    timer = Process.send_after(self(), :refresh, state.interval)
-
-    {:noreply, %{state | timer: timer}}
+    {:noreply, %{state | timer: maybe_schedule_refresh(state)}}
   end
 
   @impl true
@@ -143,7 +146,8 @@ defmodule BroadwayDashboard.Metrics do
 
   @impl true
   def terminate(_reason, state) do
-    Process.cancel_timer(state.timer)
+    if state.timer, do: Process.cancel_timer(state.timer)
+
     Telemetry.detach(self())
 
     state.listeners
