@@ -13,10 +13,10 @@ defmodule BroadwayDashboard.PipelineGraph do
 
   @spec build_layers(atom(), [topology_item()]) :: %Layer{}
   def build_layers(pipeline, topology) when is_atom(pipeline) and is_list(topology) do
-    calc_span(%Layer{
+    %Layer{
       nodes: build_nodes(pipeline, topology[:producers], "prod", false),
       children: processors_layer(pipeline, topology)
-    })
+    }
   end
 
   defp build_nodes(pipeline, stage_details, label_prefix, show_detail? \\ true) do
@@ -79,51 +79,5 @@ defmodule BroadwayDashboard.PipelineGraph do
     |> String.split(".")
     |> List.last()
     |> String.downcase()
-  end
-
-  defp calc_span(%type{} = node) when type in [Node, Layer] do
-    {{_, min, max}, new_node} = calc_span(node, {-1, 0, 0})
-
-    %{new_node | min: min, max: max}
-  end
-
-  defp calc_span(%{children: []} = node, {last_pos, min, max}) do
-    new_last_pos = last_pos + 1
-
-    {{new_last_pos, min(min, new_last_pos), max(max, new_last_pos)}, %{node | pos: new_last_pos}}
-  end
-
-  defp calc_span(%{children: children} = node, {last_pos, min, max}) do
-    level = node.level + 1
-
-    {new_children, {new_last_pos, new_min, new_max}} =
-      Enum.reduce(children, {[], {last_pos, min, max}}, fn child,
-                                                           {cur_children, {last_pos, min, max}} ->
-        {{new_last_pos, new_min, new_max}, new_child} =
-          calc_span(%{child | level: level}, {last_pos, min, max})
-
-        {[new_child | cur_children], {new_last_pos, min(min, new_min), max(max, new_max)}}
-      end)
-
-    [%{pos: first_child_pos} | _] = Enum.reverse(new_children)
-    [%{pos: last_child_pos} | _] = new_children
-
-    center_pos = (first_child_pos + last_child_pos) / 2
-
-    {min, max} =
-      case node do
-        %Layer{} ->
-          half_length = length(node.nodes) / 2
-
-          min = center_pos - half_length
-          max = center_pos + half_length
-
-          {min(new_min, min), max(new_max, max)}
-
-        %Node{} ->
-          {min(new_min, first_child_pos), max(new_max, last_child_pos)}
-      end
-
-    {{new_last_pos, min, max}, %{node | children: Enum.reverse(new_children), pos: center_pos}}
   end
 end

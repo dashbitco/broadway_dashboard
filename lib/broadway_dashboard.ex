@@ -137,7 +137,9 @@ defmodule BroadwayDashboard do
           "This pipeline is not running on this node."
 
         :version_is_not_enough ->
-          "Broadway is outdated on remote node. Minimum version required is #{@minimum_broadway_version}"
+          "Broadway is outdated on remote node. Minimum version required is #{
+            @minimum_broadway_version
+          }"
 
         {:badrpc, _} ->
           "Could not send request to node. Try again later."
