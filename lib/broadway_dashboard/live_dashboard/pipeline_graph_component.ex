@@ -70,7 +70,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       ...>     }
       ...>   ]
       ...> }
-      iex> {PipelineGraphComponent, [layers: layers, title: "Pipeline", hint: "A pipeline", opts: [r: 32]]}
+      iex> pipeline_graph(layers: layers, title: "Pipeline", hint: "A pipeline", opts: [r: 32])
   """
 
   @default_width 1200
