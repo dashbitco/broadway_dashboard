@@ -1,6 +1,78 @@
 defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   use Phoenix.LiveDashboard.Web, :live_component
 
+  @moduledoc """
+  A component for drawing layered graphs.
+
+  This is useful to represent pipelines like we have on
+  [BroadwayDashboard](https://hexdocs.pm/broadway_dashboard) where
+  each layer points to all nodes of the layer below.
+  It draws the layers from top to bottom.
+
+  See: https://en.wikipedia.org/wiki/Layered_graph_drawing
+
+  ## Options
+
+    * `:layers` - a graph of layers with nodes. They represent
+      our graph structure (see example).
+    * `:opts` - drawing options
+      * `:r` - the ratio of our circles.
+      * `:width` - the width in pixels of our drawing area (optional).
+        A scroll is added if graph is bigger than our drawing area.
+      * `:margin_top` - the top margin in pixels.
+      * `:margin_left` - the left margin in pixels.
+      * `:x_gap` - the horizontal gap between circles.
+      * `:y_gap` - the vertical gap between circles.
+      * `:y_label_offset` - the vertical offset for the circle label.
+      * `:y_detail_offset` - the vertical offset for the circle detail.
+
+  ## Examples
+
+      iex> alias BroadwayDashboard.LiveDashboard.PipelineGraphComponent
+      iex> alias BroadwayDashboard.LiveDashboard.PipelineGraphComponent.{Layer, Node}
+      iex> layers = %Layer{
+      ...>   children: [
+      ...>     %Layer{
+      ...>       level: 1,
+      ...>       nodes: [
+      ...>         %Node{
+      ...>           data: %{
+      ...>             detail: 0,
+      ...>             label: "proc_0",
+      ...>             show_detail?: true
+      ...>           },
+      ...>           level: 0
+      ...>         },
+      ...>         %Node{
+      ...>           children: [],
+      ...>           data: %{
+      ...>             detail: 0,
+      ...>             label: "proc_1",
+      ...>             show_detail?: true
+      ...>           },
+      ...>           level: 0
+      ...>         }
+      ...>       ]
+      ...>     }
+      ...>   ],
+      ...>   level: 0,
+      ...>   max: 0.5,
+      ...>   min: -0.5,
+      ...>   nodes: [
+      ...>     %Node{
+      ...>       children: [],
+      ...>       data: %{
+      ...>         detail: 0,
+      ...>         label: "prod_0",
+      ...>         show_detail?: false
+      ...>       },
+      ...>       level: 0
+      ...>     }
+      ...>   ]
+      ...> }
+      iex> {PipelineGraphComponent, [layers: layers, title: "Pipeline", hint: "A pipeline", opts: [r: 32]]}
+  """
+
   @default_width 1200
   @default_height 610
 
@@ -45,22 +117,22 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     r = opts[:r] || 42
 
     d = r + r
-    w_gap = opts[:w_gap] || 20
+    x_gap = opts[:x_gap] || 20
     box_width = opts[:width] || @default_width
-    base_width = (layers.max - layers.min) * (d + w_gap)
+    base_width = (layers.max - layers.min) * (d + x_gap)
 
     margin_left =
-      Enum.max([box_width, base_width]) / 2 - base_width / 2 + abs(layers.min) * (d + w_gap) - r
+      Enum.max([box_width, base_width]) / 2 - base_width / 2 + abs(layers.min) * (d + x_gap) - r
 
     opts = %{
       r: r,
       d: d,
-      w_gap: w_gap,
-      h_gap: opts[:h_gap] || 82,
       margin_top: opts[:margin_top] || 20,
       margin_left: margin_left,
-      label_y_offset: opts[:label_y_offset] || 5,
-      detail_y_offset: opts[:detail_y_offset] || 18
+      x_gap: x_gap,
+      y_gap: opts[:y_gap] || 82,
+      y_label_offset: opts[:y_label_offset] || 5,
+      y_detail_offset: opts[:y_detail_offset] || 18
     }
 
     {circles, arrows} =
@@ -115,9 +187,9 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
             <circle fill="<%= circle.bg %>" cx="<%= circle.x %>" cy="<%= circle.y %>" r="<%= opts.r %>" class="graph-circle" />
             <%= if circle.show_detail? do %>
               <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y %>" class="graph-circle-label"><%= circle.label %></text>
-              <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y + opts.detail_y_offset %>" class="graph-circle-detail"><%= circle.detail %></text>
+              <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y + opts.y_detail_offset %>" class="graph-circle-detail"><%= circle.detail %></text>
             <% else %>
-              <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y + opts.label_y_offset %>" class="graph-circle-label"><%= circle.label %></text>
+              <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y + opts.y_label_offset %>" class="graph-circle-label"><%= circle.label %></text>
             <% end %>
            </g>
           <% end %>
@@ -152,8 +224,8 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   end
 
   defp coordinate(node_or_layer, opts) do
-    x = (opts.d + opts.w_gap) * node_or_layer.pos + opts.r + opts.margin_left
-    y = (opts.d + opts.h_gap) * node_or_layer.level + opts.r + opts.margin_top
+    x = (opts.d + opts.x_gap) * node_or_layer.pos + opts.r + opts.margin_left
+    y = (opts.d + opts.y_gap) * node_or_layer.level + opts.r + opts.margin_top
 
     {x, y}
   end
@@ -165,12 +237,12 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   defp coordinate(%Layer{} = layer, node_index, opts) do
     n_nodes = length(layer.nodes)
 
-    layer_x = (opts.d + opts.w_gap) * layer.pos + opts.r + opts.margin_left
-    layer_width = (n_nodes - 1) * (opts.d + opts.w_gap)
+    layer_x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
+    layer_width = (n_nodes - 1) * (opts.d + opts.x_gap)
     layer_start_x = layer_x - layer_width / 2
 
     x = layer_start_x + node_index * layer_width / (n_nodes - 1)
-    y = (opts.d + opts.h_gap) * layer.level + opts.r + opts.margin_top
+    y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
 
     {x, y}
   end
@@ -211,8 +283,8 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   end
 
   defp arrows(parent_x, parent_y, %Layer{nodes: [_]} = layer, opts) do
-    x = (opts.d + opts.w_gap) * layer.pos + opts.r + opts.margin_left
-    y = (opts.d + opts.h_gap) * layer.level + opts.r + opts.margin_top
+    x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
+    y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
 
     [arrow({parent_x, parent_y}, {x, y}, opts)]
   end
@@ -221,12 +293,12 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     n_nodes = length(layer.nodes)
 
     for node_index <- 0..(n_nodes - 1) do
-      layer_x = (opts.d + opts.w_gap) * layer.pos + opts.r + opts.margin_left
-      layer_width = (n_nodes - 1) * (opts.d + opts.w_gap)
+      layer_x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
+      layer_width = (n_nodes - 1) * (opts.d + opts.x_gap)
       layer_start_x = layer_x - layer_width / 2
 
       x = layer_start_x + node_index * layer_width / (n_nodes - 1)
-      y = (opts.d + opts.h_gap) * layer.level + opts.r + opts.margin_top
+      y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
 
       arrow({parent_x, parent_y}, {x, y}, opts)
     end
@@ -245,8 +317,8 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   end
 
   defp arrow({px, py}, node, opts) do
-    x = (opts.d + opts.w_gap) * node.pos + opts.r + opts.margin_left
-    y = (opts.d + opts.h_gap) * node.level + opts.r + opts.margin_top
+    x = (opts.d + opts.x_gap) * node.pos + opts.r + opts.margin_left
+    y = (opts.d + opts.y_gap) * node.level + opts.r + opts.margin_top
 
     arrow({px, py}, {x, y}, opts)
   end
@@ -262,6 +334,6 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     max_height = Enum.max([@default_height | Enum.map(circles, fn circle -> circle.y end)])
     max_width = Enum.max([@default_width | Enum.map(circles, fn circle -> circle.x end)])
 
-    {max_width + opts.w_gap, max_height}
+    {max_width + opts.x_gap, max_height}
   end
 end
