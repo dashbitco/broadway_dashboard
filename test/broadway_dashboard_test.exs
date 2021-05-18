@@ -54,12 +54,12 @@ defmodule BroadwayDashboardTest do
     assert rendered =~ "proc_9"
 
     assert rendered =~ "default"
-    assert rendered =~ "default_0"
-    assert rendered =~ "default_3"
+    assert rendered =~ "proc_0"
+    assert rendered =~ "proc_3"
 
     assert rendered =~ "s3"
-    assert rendered =~ "s3_0"
-    assert rendered =~ "s3_2"
+    assert rendered =~ "proc_0"
+    assert rendered =~ "proc_2"
 
     assert has_element?(live, ".banner-card-value", "0")
     refute has_element?(live, ".banner-card-value", "1")

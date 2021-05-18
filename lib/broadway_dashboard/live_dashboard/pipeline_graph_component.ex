@@ -32,48 +32,29 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
 
   ## Examples
 
-      iex> alias BroadwayDashboard.LiveDashboard.PipelineGraphComponent
-      iex> alias BroadwayDashboard.LiveDashboard.PipelineGraphComponent.{Layer, Node}
-      iex> layers = %Layer{
-      ...>   children: [
-      ...>     %Layer{
-      ...>       level: 1,
-      ...>       nodes: [
-      ...>         %Node{
-      ...>           data: %{
-      ...>             detail: 0,
-      ...>             label: "proc_0",
-      ...>             show_detail?: true
-      ...>           },
-      ...>           level: 0
-      ...>         },
-      ...>         %Node{
-      ...>           children: [],
-      ...>           data: %{
-      ...>             detail: 0,
-      ...>             label: "proc_1",
-      ...>             show_detail?: true
-      ...>           },
-      ...>           level: 0
-      ...>         }
-      ...>       ]
-      ...>     }
-      ...>   ],
-      ...>   level: 0,
-      ...>   max: 0.5,
-      ...>   min: -0.5,
-      ...>   nodes: [
-      ...>     %Node{
-      ...>       children: [],
+      iex> layers = [
+      ...>   [
+      ...>     %{
+      ...>       id: MyPipeline.Broadway.Producer_0,
       ...>       data: %{
       ...>         detail: 0,
       ...>         label: "prod_0",
       ...>         show_detail?: false
       ...>       },
-      ...>       level: 0
+      ...>       children: [MyPipeline.Broadway.Processor_default_0]
       ...>     }
-      ...>   ]
-      ...> }
+      ...>   ],
+      ...>   [
+      ...>     %{
+      ...>       id: MyPipeline.Broadway.Processor_default_0,
+      ...>       data: %{
+      ...>         detail: 0,
+      ...>         label: "proc_1"
+      ...>       },
+      ...>       children: []
+      ...>      }
+      ...>    ]
+      ...> ]
       iex> pipeline_graph(layers: layers, title: "Pipeline", hint: "A pipeline", opts: [r: 32])
   """
 
@@ -81,24 +62,6 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   @default_height 610
 
   # TODO: move this module to PhoenixLiveDashboard project
-
-  defmodule Layer do
-    defstruct level: 0,
-              pos: 0.0,
-              min: 0.0,
-              max: 0.0,
-              nodes: [],
-              children: []
-  end
-
-  defmodule Node do
-    defstruct data: %{},
-              level: 0,
-              pos: 0.0,
-              min: 0.0,
-              max: 0.0,
-              children: []
-  end
 
   defmodule Arrow do
     defstruct [:x1, :y1, :x2, :y2]
@@ -115,18 +78,19 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
 
   @impl true
   def render(assigns) do
-    layers = calc_span(assigns.layers)
+    layers = assigns.layers
     opts = Map.get(assigns, :opts, [])
 
     r = opts[:r] || 42
 
     d = r + r
     x_gap = opts[:x_gap] || 20
-    box_width = opts[:width] || @default_width
-    base_width = (layers.max - layers.min) * (d + x_gap)
+    # box_width = opts[:width] || @default_width
+    # base_width = (layers.max - layers.min) * (d + x_gap)
 
-    margin_left =
-      Enum.max([box_width, base_width]) / 2 - base_width / 2 + abs(layers.min) * (d + x_gap) - r
+    # margin_left =
+    # Enum.max([box_width, base_width]) / 2 - base_width / 2 + abs(layers.min) * (d + x_gap) - r
+    margin_left = 20
 
     opts = %{
       r: r,
@@ -203,50 +167,65 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     """
   end
 
-  defp build(%Layer{} = layer, opts) do
-    arrows_and_circles =
-      layer.nodes
+  defp build(layers, opts) do
+    layers
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {layer, index} ->
+      layer
       |> Enum.with_index()
-      |> Enum.flat_map(fn {node, node_index} ->
-        {x, y} = coordinate(layer, node_index, opts)
+      |> Enum.map(fn {layer_node, node_index} ->
+        {x, y} = coordinate({layer, index}, {layer_node, node_index}, opts)
 
-        children_arrows =
-          Enum.flat_map(layer.children, fn child ->
-            arrows(x, y, child, opts)
-          end)
-
-        [circle(x, y, node, opts) | children_arrows]
+        circle(x, y, layer_node, opts)
       end)
-
-    arrows_and_circles ++ Enum.flat_map(layer.children, fn child -> build(child, opts) end)
+    end)
   end
 
-  defp build(%Node{children: []} = node, opts) do
-    {x, y} = coordinate(node, opts)
+  # defp build(%Layer{} = layer, opts) do
+  #   arrows_and_circles =
+  #     layer.nodes
+  #     |> Enum.with_index()
+  #     |> Enum.flat_map(fn {node, node_index} ->
+  #       {x, y} = coordinate(layer, node_index, opts)
+  #
+  #       children_arrows =
+  #         Enum.flat_map(layer.children, fn child ->
+  #           arrows(x, y, child, opts)
+  #         end)
+  #
+  #       [circle(x, y, node, opts) | children_arrows]
+  #     end)
+  #
+  #   arrows_and_circles ++ Enum.flat_map(layer.children, fn child -> build(child, opts) end)
+  # end
 
-    [circle(x, y, node, opts)]
-  end
+  # defp build(%Node{children: []} = node, opts) do
+  #   {x, y} = coordinate(node, opts)
+  #
+  #   [circle(x, y, node, opts)]
+  # end
 
-  defp coordinate(node_or_layer, opts) do
-    x = (opts.d + opts.x_gap) * node_or_layer.pos + opts.r + opts.margin_left
-    y = (opts.d + opts.y_gap) * node_or_layer.level + opts.r + opts.margin_top
+  # defp coordinate(node_or_layer, opts) do
+  #   x = (opts.d + opts.x_gap) * node_or_layer.pos + opts.r + opts.margin_left
+  #   y = (opts.d + opts.y_gap) * node_or_layer.level + opts.r + opts.margin_top
+  #
+  #   {x, y}
+  # end
 
-    {x, y}
-  end
+  # defp coordinate(%Layer{nodes: [_]} = layer, 0 = _node_index, opts) do
+  #   coordinate(layer, opts)
+  # end
 
-  defp coordinate(%Layer{nodes: [_]} = layer, 0 = _node_index, opts) do
-    coordinate(layer, opts)
-  end
+  defp coordinate({layer, index}, {_layer_node, node_index}, opts) do
+    n_nodes = length(layer)
 
-  defp coordinate(%Layer{} = layer, node_index, opts) do
-    n_nodes = length(layer.nodes)
-
-    layer_x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
-    layer_width = (n_nodes - 1) * (opts.d + opts.x_gap)
+    # TODO: check how we can swap `layer.pos` (the index)
+    layer_x = (opts.d + opts.x_gap) * index + opts.r + opts.margin_left
+    layer_width = n_nodes * (opts.d + opts.x_gap)
     layer_start_x = layer_x - layer_width / 2
 
-    x = layer_start_x + node_index * layer_width / (n_nodes - 1)
-    y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
+    x = layer_start_x + node_index * layer_width / n_nodes
+    y = (opts.d + opts.y_gap) * index + opts.r + opts.margin_top
 
     {x, y}
   end
@@ -259,79 +238,33 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       x: x,
       y: y,
       bg: background,
-      label: node.data.label,
+      label: if(is_map(node.data), do: node.data.label, else: node.data),
       detail: detail,
-      show_detail?: node.data.show_detail?
+      show_detail?: is_map(node.data)
     }
+  end
+
+  # TODO: let this be configurable
+  defp background(node_data) when is_binary(node_data) do
+    "gray"
   end
 
   defp background(node_data) do
     # This calculation is defining the Hue portion of the HSL color function.
     # By definition, the value 0 is red and the value 120 is green.
     # See: https://developer.mozilla.org/en-US/docs/Web/CSS/color_value#hsl_colors
-    if node_data.show_detail? do
-      hue = 100 - node_data.detail
+    hue = 100 - node_data.detail
 
-      "hsl(#{hue}, 80%, 35%)"
-    else
-      "gray"
-    end
+    "hsl(#{hue}, 80%, 35%)"
+  end
+
+  # TODO: let this be configurable
+  defp format_detail(node_data) when is_binary(node_data) do
+    "#{node_data}%"
   end
 
   defp format_detail(node_data) do
     "#{node_data.detail}%"
-  end
-
-  defp arrows(x, y, %Node{} = node, opts) do
-    [arrow({x, y}, node, opts)]
-  end
-
-  defp arrows(parent_x, parent_y, %Layer{nodes: [_]} = layer, opts) do
-    x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
-    y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
-
-    [arrow({parent_x, parent_y}, {x, y}, opts)]
-  end
-
-  defp arrows(parent_x, parent_y, %Layer{} = layer, opts) do
-    n_nodes = length(layer.nodes)
-
-    for node_index <- 0..(n_nodes - 1) do
-      layer_x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
-      layer_width = (n_nodes - 1) * (opts.d + opts.x_gap)
-      layer_start_x = layer_x - layer_width / 2
-
-      x = layer_start_x + node_index * layer_width / (n_nodes - 1)
-      y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
-
-      arrow({parent_x, parent_y}, {x, y}, opts)
-    end
-  end
-
-  defp arrow({px, py}, {x, y}, opts) do
-    distance = :math.sqrt(:math.pow(x - px, 2) + :math.pow(y - py, 2))
-
-    ratio1 = opts.r / distance
-    {x1, y1} = arrow_endpoint(px, py, x, y, ratio1)
-
-    ratio2 = (distance - opts.r - 9) / distance
-    {x2, y2} = arrow_endpoint(px, py, x, y, ratio2)
-
-    %Arrow{x1: x1, y1: y1, x2: x2, y2: y2}
-  end
-
-  defp arrow({px, py}, node, opts) do
-    x = (opts.d + opts.x_gap) * node.pos + opts.r + opts.margin_left
-    y = (opts.d + opts.y_gap) * node.level + opts.r + opts.margin_top
-
-    arrow({px, py}, {x, y}, opts)
-  end
-
-  defp arrow_endpoint(x1, y1, x2, y2, ratio) do
-    dx = (x2 - x1) * ratio
-    dy = (y2 - y1) * ratio
-
-    {x1 + dx, y1 + dy}
   end
 
   defp graph_dimensions(circles, opts) do
@@ -341,49 +274,102 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     {max_width + opts.x_gap, max_height}
   end
 
-  def calc_span(%type{} = node) when type in [Node, Layer] do
-    {{_, min, max}, new_node} = calc_span(node, {-1, 0, 0})
+  # TODO: adapt arrows
+  # defp arrows(x, y, %Node{} = node, opts) do
+  #   [arrow({x, y}, node, opts)]
+  # end
 
-    %{new_node | min: min, max: max}
-  end
+  # defp arrows(parent_x, parent_y, %Layer{nodes: [_]} = layer, opts) do
+  #   x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
+  #   y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
 
-  defp calc_span(%{children: []} = node, {last_pos, min, max}) do
-    new_last_pos = last_pos + 1
+  #   [arrow({parent_x, parent_y}, {x, y}, opts)]
+  # end
 
-    {{new_last_pos, min(min, new_last_pos), max(max, new_last_pos)}, %{node | pos: new_last_pos}}
-  end
+  # defp arrows(parent_x, parent_y, %Layer{} = layer, opts) do
+  #   n_nodes = length(layer.nodes)
 
-  defp calc_span(%{children: children} = node, {last_pos, min, max}) do
-    level = node.level + 1
+  #   for node_index <- 0..(n_nodes - 1) do
+  #     layer_x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
+  #     layer_width = (n_nodes - 1) * (opts.d + opts.x_gap)
+  #     layer_start_x = layer_x - layer_width / 2
 
-    {new_children, {new_last_pos, new_min, new_max}} =
-      Enum.reduce(children, {[], {last_pos, min, max}}, fn child,
-                                                           {cur_children, {last_pos, min, max}} ->
-        {{new_last_pos, new_min, new_max}, new_child} =
-          calc_span(%{child | level: level}, {last_pos, min, max})
+  #     x = layer_start_x + node_index * layer_width / (n_nodes - 1)
+  #     y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
 
-        {[new_child | cur_children], {new_last_pos, min(min, new_min), max(max, new_max)}}
-      end)
+  #     arrow({parent_x, parent_y}, {x, y}, opts)
+  #   end
+  # end
 
-    [%{pos: first_child_pos} | _] = Enum.reverse(new_children)
-    [%{pos: last_child_pos} | _] = new_children
+  # defp arrow({px, py}, {x, y}, opts) do
+  #   distance = :math.sqrt(:math.pow(x - px, 2) + :math.pow(y - py, 2))
 
-    center_pos = (first_child_pos + last_child_pos) / 2
+  #   ratio1 = opts.r / distance
+  #   {x1, y1} = arrow_endpoint(px, py, x, y, ratio1)
 
-    {min, max} =
-      case node do
-        %Layer{} ->
-          half_length = length(node.nodes) / 2
+  #   ratio2 = (distance - opts.r - 9) / distance
+  #   {x2, y2} = arrow_endpoint(px, py, x, y, ratio2)
 
-          min = center_pos - half_length
-          max = center_pos + half_length
+  #   %Arrow{x1: x1, y1: y1, x2: x2, y2: y2}
+  # end
 
-          {min(new_min, min), max(new_max, max)}
+  # defp arrow({px, py}, node, opts) do
+  #   x = (opts.d + opts.x_gap) * node.pos + opts.r + opts.margin_left
+  #   y = (opts.d + opts.y_gap) * node.level + opts.r + opts.margin_top
 
-        %Node{} ->
-          {min(new_min, first_child_pos), max(new_max, last_child_pos)}
-      end
+  #   arrow({px, py}, {x, y}, opts)
+  # end
 
-    {{new_last_pos, min, max}, %{node | children: Enum.reverse(new_children), pos: center_pos}}
-  end
+  # defp arrow_endpoint(x1, y1, x2, y2, ratio) do
+  #   dx = (x2 - x1) * ratio
+  #   dy = (y2 - y1) * ratio
+
+  #   {x1 + dx, y1 + dy}
+  # end
+
+  # def calc_span(%type{} = node) when type in [Node, Layer] do
+  #   {{_, min, max}, new_node} = calc_span(node, {-1, 0, 0})
+
+  #   %{new_node | min: min, max: max}
+  # end
+
+  # defp calc_span(%{children: []} = node, {last_pos, min, max}) do
+  #   new_last_pos = last_pos + 1
+
+  #   {{new_last_pos, min(min, new_last_pos), max(max, new_last_pos)}, %{node | pos: new_last_pos}}
+  # end
+
+  # defp calc_span(%{children: children} = node, {last_pos, min, max}) do
+  #   level = node.level + 1
+
+  #   {new_children, {new_last_pos, new_min, new_max}} =
+  #     Enum.reduce(children, {[], {last_pos, min, max}}, fn child,
+  #                                                          {cur_children, {last_pos, min, max}} ->
+  #       {{new_last_pos, new_min, new_max}, new_child} =
+  #         calc_span(%{child | level: level}, {last_pos, min, max})
+
+  #       {[new_child | cur_children], {new_last_pos, min(min, new_min), max(max, new_max)}}
+  #     end)
+
+  #   [%{pos: first_child_pos} | _] = Enum.reverse(new_children)
+  #   [%{pos: last_child_pos} | _] = new_children
+
+  #   center_pos = (first_child_pos + last_child_pos) / 2
+
+  #   {min, max} =
+  #     case node do
+  #       %Layer{} ->
+  #         half_length = length(node.nodes) / 2
+
+  #         min = center_pos - half_length
+  #         max = center_pos + half_length
+
+  #         {min(new_min, min), max(new_max, max)}
+
+  #       %Node{} ->
+  #         {min(new_min, first_child_pos), max(new_max, last_child_pos)}
+  #     end
+
+  #   {{new_last_pos, min, max}, %{node | children: Enum.reverse(new_children), pos: center_pos}}
+  # end
 end

@@ -3,7 +3,6 @@ defmodule BroadwayDashboard.PipelineGraphTest do
 
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.PipelineGraph
-  alias BroadwayDashboard.LiveDashboard.PipelineGraphComponent.{Layer, Node}
 
   defmodule Forwarder do
     use Broadway
@@ -24,83 +23,95 @@ defmodule BroadwayDashboard.PipelineGraphTest do
   end
 
   describe "build_layers/2" do
-    test "pipeline with batchers" do
+    test "new version - without batchers" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder,
         name: broadway,
         context: %{test_pid: self()},
         producer: [module: {Broadway.DummyProducer, []}],
-        processors: [default: [concurrency: 10]],
-        batchers: [default: [concurrency: 2], s3: [concurrency: 3]]
+        processors: [default: [concurrency: 3]]
       )
 
       Counters.start!(broadway)
 
       topology = Broadway.topology(broadway)
-      [processors | _] = topology[:processors]
 
-      Counters.put_processing_factor(broadway, :"#{processors.name}_0", 42)
-
-      assert %Layer{nodes: producers, children: [processors_layer]} =
-               PipelineGraph.build_layers(broadway, topology)
-
-      assert [%Node{data: %{label: "prod_0", detail: 0, show_detail?: false}}] = producers
-
-      assert %Layer{nodes: processors, children: [default_batch_layer, s3_batch_layer]} =
-               processors_layer
-
-      assert length(processors) == 10
-
-      [first_processor | rest_of_processors] = processors
-
-      assert first_processor.data.detail == 42
-
-      for {processor, idx} <- Enum.with_index(rest_of_processors, 1) do
-        assert %Node{data: %{label: label, detail: 0, show_detail?: true}} = processor
-        assert label == "proc_#{idx}"
-      end
-
-      assert %Layer{nodes: [default_batcher], children: default_batch_processors} =
-               default_batch_layer
-
-      assert %Node{data: %{label: "default"}} = default_batcher
-
-      assert length(default_batch_processors) == 2
-
-      for {processor, idx} <- Enum.with_index(default_batch_processors) do
-        assert %Node{data: %{label: label, detail: 0, show_detail?: true}} = processor
-        assert label == "default_#{idx}"
-      end
-
-      assert %Layer{nodes: [s3_batcher], children: s3_batch_processors} = s3_batch_layer
-      assert %Node{data: %{label: "s3"}} = s3_batcher
-
-      assert length(s3_batch_processors) == 3
-
-      for {processor, idx} <- Enum.with_index(s3_batch_processors) do
-        assert %Node{data: %{label: label, detail: 0, show_detail?: true}} = processor
-        assert label == "s3_#{idx}"
-      end
+      assert [
+               [%{id: _prod_id, children: [_proc1, _proc2, _proc3], data: "prod_0"}],
+               [
+                 %{id: _proc_0, children: [], data: %{label: "proc_0", detail: 0}},
+                 %{id: _proc_1, children: [], data: %{label: "proc_1", detail: 0}},
+                 %{id: _proc_2, children: [], data: %{label: "proc_2", detail: 0}}
+               ]
+             ] = PipelineGraph.build_layers(broadway, topology)
     end
 
-    test "pipeline without batchers" do
+    test "new verion - with batchers" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder,
         name: broadway,
         context: %{test_pid: self()},
         producer: [module: {Broadway.DummyProducer, []}],
-        processors: [default: [concurrency: 10]]
+        processors: [default: [concurrency: 3]],
+        batchers: [default: [concurrency: 2], s3: [concurrency: 1]]
       )
 
       Counters.start!(broadway)
 
       topology = Broadway.topology(broadway)
 
-      assert %Layer{children: [processors_layer]} = PipelineGraph.build_layers(broadway, topology)
+      assert [
+               [%{id: prod_id, children: [proc_0, proc_1, proc_2], data: "prod_0"}],
+               [
+                 %{
+                   id: proc_0,
+                   children: [default_batcher, s3_batcher],
+                   data: %{label: "proc_0", detail: 0}
+                 },
+                 %{
+                   id: proc_1,
+                   children: [default_batcher, s3_batcher],
+                   data: %{label: "proc_1", detail: 0}
+                 },
+                 %{
+                   id: proc_2,
+                   children: [default_batcher, s3_batcher],
+                   data: %{label: "proc_2", detail: 0}
+                 }
+               ],
+               [
+                 %{
+                   children: [batch_proc_0, batch_proc_1],
+                   data: %{detail: 0, label: "default"},
+                   id: default_batcher
+                 },
+                 %{
+                   children: [batch_proc_s3],
+                   data: %{detail: 0, label: "s3"},
+                   id: s3_batcher
+                 }
+               ],
+               [
+                 %{children: [], data: %{detail: 0, label: "proc_0"}, id: batch_proc_0},
+                 %{children: [], data: %{detail: 0, label: "proc_1"}, id: batch_proc_1},
+                 %{children: [], data: %{detail: 0, label: "proc_0"}, id: batch_proc_s3}
+               ]
+             ] = PipelineGraph.build_layers(broadway, topology)
 
-      assert %Layer{children: []} = processors_layer
+      assert prod_id == :"#{broadway}.Broadway.Producer_0"
+
+      assert proc_0 == :"#{broadway}.Broadway.Processor_default_0"
+      assert proc_1 == :"#{broadway}.Broadway.Processor_default_1"
+      assert proc_2 == :"#{broadway}.Broadway.Processor_default_2"
+
+      assert default_batcher == :"#{broadway}.Broadway.Batcher_default"
+
+      assert batch_proc_0 == :"#{broadway}.Broadway.BatchProcessor_default_0"
+      assert batch_proc_1 == :"#{broadway}.Broadway.BatchProcessor_default_1"
+
+      assert batch_proc_s3 == :"#{broadway}.Broadway.BatchProcessor_s3_0"
     end
   end
 end
