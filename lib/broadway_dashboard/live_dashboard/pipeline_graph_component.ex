@@ -58,6 +58,8 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       iex> pipeline_graph(layers: layers, title: "Pipeline", hint: "A pipeline", opts: [r: 32])
   """
 
+  @max_node_width 75
+
   # TODO: move this module to PhoenixLiveDashboard project
 
   defmodule Arrow do
@@ -65,7 +67,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   end
 
   defmodule Circle do
-    defstruct [:x, :y, :label, :detail, :show_detail?, :bg]
+    defstruct [:id, :x, :y, :label, :detail, :show_detail?, :bg, :children]
   end
 
   @impl true
@@ -129,7 +131,6 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
             </pattern>
           </defs>
 
-          <rect width="100%" height="100%" fill="url(#grid)" />
 
           <%= for arrow <- arrows do %>
             <line x1="<%= arrow.x1 %>" y1="<%= arrow.y1 %>" x2="<%= arrow.x2 %>" y2="<%= arrow.y2 %>" class="graph-line" marker-end="url(#arrow)"/>
@@ -160,8 +161,8 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     node_width = opts.view_box_width / (max_nodes + (max_nodes - 1) * opts.x_gap)
 
     node_width =
-      if node_width > 75 do
-        75
+      if node_width > @max_node_width do
+        @max_node_width
       else
         node_width
       end
@@ -206,21 +207,22 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
               length: group_size,
               width: width,
               nodes: group,
-              children_size: children_size,
+              children: member.children,
               center_on_children?: children_size > group_size
             }
           end)
 
         len = length(layer)
+        # TODO: add more gap in case group children are not shared
+        group_gaps = opts.gap * (length(groups) - 1)
 
         width =
-          opts.gap * (length(groups) - 1) +
+          group_gaps +
             (groups
              |> Enum.map(& &1.width)
              |> Enum.sum())
 
         start_x = opts.r + view_box_middle - width / 2
-        # Add a initial gap and use the "percentage" gap for y
         start_y = index * opts.d * (1 + opts.y_gap) + opts.y_gap * opts.d
 
         %{
@@ -238,8 +240,18 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       |> Enum.flat_map(fn layer ->
         Enum.flat_map(layer.groups, fn group ->
           Enum.map(group.nodes, fn child_node ->
-            circle(child_node.x, child_node.y, child_node, opts)
+            circle(child_node, opts)
           end)
+        end)
+      end)
+
+    circles_map = circles |> Enum.map(fn circle -> {circle.id, circle} end) |> Map.new()
+
+    arrows =
+      Enum.flat_map(circles, fn circle ->
+        Enum.map(circle.children, fn child_id ->
+          child = Map.fetch!(circles_map, child_id)
+          arrow({circle.x, circle.y}, {child.x, child.y}, opts)
         end)
       end)
 
@@ -253,9 +265,19 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     #   Enum.map(layers, fn layer ->
     #     rect(layer, opts)
     #   end)
+    max_layer_y = Enum.map(layers, & &1.start_y) |> Enum.max()
+
+    bottom_end = max_layer_y + opts.d * (opts.y_gap + 0.2)
+
+    opts =
+      if bottom_end < opts.view_box_height do
+        Map.put(opts, :view_box_height, bottom_end)
+      else
+        opts
+      end
 
     # TODO: remove rects
-    {circles, [], [], opts}
+    {circles, arrows, [], opts}
   end
 
   defp calc_width(nodes_count, opts) do
@@ -288,26 +310,28 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     Enum.reverse(updated_groups)
   end
 
-  defp rect(group, opts) do
-    y = group.start_y - opts.r
+  # defp rect(group, opts) do
+  #   y = group.start_y - opts.r
+  #
+  #   y =
+  #     if rem(group.index, 2) == 0 do
+  #       y
+  #     else
+  #       y - opts.r / 2
+  #     end
+  #
+  #   %{x: group.start_x - opts.r, y: y, width: group.width}
+  # end
 
-    y =
-      if rem(group.index, 2) == 0 do
-        y
-      else
-        y - opts.r / 2
-      end
-
-    %{x: group.start_x - opts.r, y: y, width: group.width}
-  end
-
-  defp circle(x, y, node, _opts) do
+  defp circle(node, _opts) do
     background = background(node.data)
     detail = format_detail(node.data)
 
     %Circle{
-      x: x,
-      y: y,
+      id: node.id,
+      children: node.children,
+      x: node.x,
+      y: node.y,
       bg: background,
       label: if(is_map(node.data), do: node.data.label, else: node.data),
       detail: detail,
@@ -338,56 +362,22 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     "#{node_data.detail}%"
   end
 
-  # TODO: adapt arrows
-  # defp arrows(x, y, %Node{} = node, opts) do
-  #   [arrow({x, y}, node, opts)]
-  # end
+  defp arrow({px, py}, {x, y}, opts) do
+    distance = :math.sqrt(:math.pow(x - px, 2) + :math.pow(y - py, 2))
 
-  # defp arrows(parent_x, parent_y, %Layer{nodes: [_]} = layer, opts) do
-  #   x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
-  #   y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
+    ratio1 = opts.r / distance
+    {x1, y1} = arrow_endpoint(px, py, x, y, ratio1)
 
-  #   [arrow({parent_x, parent_y}, {x, y}, opts)]
-  # end
+    ratio2 = (distance - opts.r - 9) / distance
+    {x2, y2} = arrow_endpoint(px, py, x, y, ratio2)
 
-  # defp arrows(parent_x, parent_y, %Layer{} = layer, opts) do
-  #   n_nodes = length(layer.nodes)
+    %Arrow{x1: x1, y1: y1, x2: x2, y2: y2}
+  end
 
-  #   for node_index <- 0..(n_nodes - 1) do
-  #     layer_x = (opts.d + opts.x_gap) * layer.pos + opts.r + opts.margin_left
-  #     layer_width = (n_nodes - 1) * (opts.d + opts.x_gap)
-  #     layer_start_x = layer_x - layer_width / 2
+  defp arrow_endpoint(x1, y1, x2, y2, ratio) do
+    dx = (x2 - x1) * ratio
+    dy = (y2 - y1) * ratio
 
-  #     x = layer_start_x + node_index * layer_width / (n_nodes - 1)
-  #     y = (opts.d + opts.y_gap) * layer.level + opts.r + opts.margin_top
-
-  #     arrow({parent_x, parent_y}, {x, y}, opts)
-  #   end
-  # end
-
-  # defp arrow({px, py}, {x, y}, opts) do
-  #   distance = :math.sqrt(:math.pow(x - px, 2) + :math.pow(y - py, 2))
-
-  #   ratio1 = opts.r / distance
-  #   {x1, y1} = arrow_endpoint(px, py, x, y, ratio1)
-
-  #   ratio2 = (distance - opts.r - 9) / distance
-  #   {x2, y2} = arrow_endpoint(px, py, x, y, ratio2)
-
-  #   %Arrow{x1: x1, y1: y1, x2: x2, y2: y2}
-  # end
-
-  # defp arrow({px, py}, node, opts) do
-  #   x = (opts.d + opts.x_gap) * node.pos + opts.r + opts.margin_left
-  #   y = (opts.d + opts.y_gap) * node.level + opts.r + opts.margin_top
-
-  #   arrow({px, py}, {x, y}, opts)
-  # end
-
-  # defp arrow_endpoint(x1, y1, x2, y2, ratio) do
-  #   dx = (x2 - x1) * ratio
-  #   dy = (y2 - y1) * ratio
-
-  #   {x1 + dx, y1 + dy}
-  # end
+    {x1 + dx, y1 + dy}
+  end
 end
