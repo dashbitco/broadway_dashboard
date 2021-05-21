@@ -6,3 +6,5 @@ config :logger, level: :warn
 config :logger, :console, format: "[$level] $message\n"
 
 config :phoenix, :stacktrace_depth, 20
+
+import_config "#{Mix.env()}.exs"
