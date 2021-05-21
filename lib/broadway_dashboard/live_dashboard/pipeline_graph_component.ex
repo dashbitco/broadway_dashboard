@@ -153,7 +153,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   defp build(layers, opts) do
     max_nodes = Enum.max(Enum.map(layers, &length/1))
 
-    opts = maybe_scale_up(max_nodes, opts)
+    opts = maybe_scale_width_up(max_nodes, opts)
 
     diameter = opts.view_box_width / (max_nodes + (max_nodes - 1) * opts.x_gap)
 
@@ -252,32 +252,12 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
         end)
       end)
 
-    #  TODO: remove me
-    # rects =
-    #   Enum.flat_map(layers, fn layer ->
-    #     Enum.map(layer.groups, fn group -> rect(group, opts) end)
-    #   end)
+    opts = adjust_view_box_height(layers, opts)
 
-    # rects =
-    #   Enum.map(layers, fn layer ->
-    #     rect(layer, opts)
-    #   end)
-    max_layer_y = Enum.map(layers, & &1.start_y) |> Enum.max()
-
-    bottom_end = max_layer_y + opts.d * (opts.y_gap + 0.2)
-
-    opts =
-      if bottom_end < opts.view_box_height do
-        Map.put(opts, :view_box_height, bottom_end)
-      else
-        opts
-      end
-
-    # TODO: remove rects
-    {circles, arrows, [], opts}
+    {circles, arrows, opts}
   end
 
-  defp maybe_scale_up(max_nodes, opts) do
+  defp maybe_scale_width_up(max_nodes, opts) do
     if max_nodes > opts.max_nodes_before_scale_up do
       extra_nodes = max_nodes - opts.max_nodes_before_scale_up
       new_view_box = opts.view_box_width + extra_nodes * opts.node_diameter_for_scale_up
@@ -285,6 +265,18 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       opts
       |> Map.put(:view_box_width, new_view_box)
       |> Map.put(:scale_up, new_view_box * 100 / opts.view_box_width)
+    else
+      opts
+    end
+  end
+
+  defp adjust_view_box_height(layers, opts) do
+    max_layer_y = Enum.map(layers, & &1.start_y) |> Enum.max()
+
+    bottom_end = max_layer_y + opts.d * (opts.y_gap + 0.2)
+
+    if bottom_end != opts.view_box_height do
+      Map.put(opts, :view_box_height, bottom_end)
     else
       opts
     end
