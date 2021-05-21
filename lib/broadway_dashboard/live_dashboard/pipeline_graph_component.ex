@@ -58,9 +58,6 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       iex> pipeline_graph(layers: layers, title: "Pipeline", hint: "A pipeline", opts: [r: 32])
   """
 
-  @default_width 1200
-  @default_height 610
-
   # TODO: move this module to PhoenixLiveDashboard project
 
   defmodule Arrow do
@@ -81,34 +78,19 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     layers = assigns.layers
     opts = Map.get(assigns, :opts, [])
 
-    r = opts[:r] || 42
-
-    d = r + r
-    x_gap = opts[:x_gap] || 20
-    # box_width = opts[:width] || @default_width
-    # base_width = (layers.max - layers.min) * (d + x_gap)
-
-    # margin_left =
-    # Enum.max([box_width, base_width]) / 2 - base_width / 2 + abs(layers.min) * (d + x_gap) - r
-    margin_left = 20
-
+    # Note that margin top, X and Y gaps are relative to the size of a circle.
+    # The circle size is calculated.
     opts = %{
-      r: r,
-      d: d,
-      margin_top: opts[:margin_top] || 20,
-      margin_left: margin_left,
-      x_gap: x_gap,
-      y_gap: opts[:y_gap] || 82,
+      view_box_width: 1000,
+      view_box_height: 1000,
+      margin_top: 0.5,
+      x_gap: 0.2,
+      y_gap: 1.0,
       y_label_offset: opts[:y_label_offset] || 5,
       y_detail_offset: opts[:y_detail_offset] || 18
     }
 
-    {circles, arrows} =
-      layers
-      |> build(opts)
-      |> Enum.split_with(fn el -> match?(%Circle{}, el) end)
-
-    {width, height} = graph_dimensions(circles, opts)
+    {circles, arrows, rects, opts} = build(layers, opts)
 
     ~L"""
     <%= if @title do %>
@@ -121,7 +103,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     <% end %>
     <div class="card">
       <div class="card-body card-graph broadway-dashboard" style="overflow-x: auto; min-height: 680px">
-        <svg style="height: <%= height %>px; width: <%= width %>px;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 <%= opts.view_box_width%> <%= opts.view_box_height %>">
           <style>
             .graph-line {
               stroke: #dae0ee;
@@ -133,23 +115,28 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
               fill: #fff;
               font-family: 'LiveDashboardFont';
             }
-
-            .graph-circle-label {
-              font-size: 1rem;
-            }
-
-            .graph-circle-detail {
-              font-size: 0.9rem;
-            }
           </style>
           <defs>
             <marker id="arrow" markerWidth="10" markerHeight="10" refX="0" refY="3" orient="auto" markerUnits="strokeWidth">
               <path d="M0,0 L0,6 L9,3 z" class="graph-line" />
             </marker>
+            <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="gray" stroke-width="0.5" />
+            </pattern>
+            <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+              <rect width="100" height="100" fill="url(#smallGrid)" />
+              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="gray" stroke-width="1" />
+            </pattern>
           </defs>
+
+          <rect width="100%" height="100%" fill="url(#grid)" />
+
           <%= for arrow <- arrows do %>
             <line x1="<%= arrow.x1 %>" y1="<%= arrow.y1 %>" x2="<%= arrow.x2 %>" y2="<%= arrow.y2 %>" class="graph-line" marker-end="url(#arrow)"/>
           <% end %>
+          <%= for rect <- rects do %>
+            <rect x="<%= rect.x %>" y="<%= rect.y %>" width="<%= rect.width %>" height="<%= opts.d %>" fill="#ccc" stroke="pink" />
+          <% end %> 
           <%= for circle <- circles do %>
            <g>
             <circle fill="<%= circle.bg %>" cx="<%= circle.x %>" cy="<%= circle.y %>" r="<%= opts.r %>" class="graph-circle" />
@@ -168,66 +155,150 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   end
 
   defp build(layers, opts) do
-    layers
-    |> Enum.with_index()
-    |> Enum.flat_map(fn {layer, index} ->
-      layer
-      |> Enum.with_index()
-      |> Enum.map(fn {layer_node, node_index} ->
-        {x, y} = coordinate({layer, index}, {layer_node, node_index}, opts)
+    max_nodes = Enum.max(Enum.map(layers, &length/1))
 
-        circle(x, y, layer_node, opts)
+    node_width = opts.view_box_width / (max_nodes + (max_nodes - 1) * opts.x_gap)
+
+    node_width =
+      if node_width > 75 do
+        75
+      else
+        node_width
+      end
+
+    radius = node_width / 2
+
+    gap = node_width * opts.x_gap
+
+    opts =
+      opts
+      |> Map.put_new(:d, node_width)
+      |> Map.put_new(:r, radius)
+      |> Map.put_new(:gap, gap)
+
+    view_box_middle = opts.view_box_width / 2
+
+    layers =
+      layers
+      |> Enum.with_index()
+      |> Enum.map(fn {layer, index} ->
+        groups =
+          layer
+          |> Enum.chunk_by(&Enum.sort(&1.children))
+          |> Enum.with_index()
+          |> Enum.map(fn {group, group_index} ->
+            group_size = length(group)
+
+            [member | _] = group
+            children_size = length(member.children)
+
+            length_for_width =
+              if children_size > group_size do
+                children_size
+              else
+                group_size
+              end
+
+            width = calc_width(length_for_width, opts)
+
+            %{
+              index: group_index,
+              length: group_size,
+              width: width,
+              nodes: group,
+              children_size: children_size,
+              center_on_children?: children_size > group_size
+            }
+          end)
+
+        len = length(layer)
+
+        width =
+          opts.gap * (length(groups) - 1) +
+            (groups
+             |> Enum.map(& &1.width)
+             |> Enum.sum())
+
+        start_x = opts.r + view_box_middle - width / 2
+        # Add a initial gap and use the "percentage" gap for y
+        start_y = index * opts.d * (1 + opts.y_gap) + opts.y_gap * opts.d
+
+        %{
+          length: len,
+          width: width,
+          start_x: start_x,
+          start_y: start_y,
+          index: index,
+          groups: calc_groups_positions(groups, {start_x, start_y}, opts)
+        }
       end)
-    end)
+
+    circles =
+      layers
+      |> Enum.flat_map(fn layer ->
+        Enum.flat_map(layer.groups, fn group ->
+          Enum.map(group.nodes, fn child_node ->
+            circle(child_node.x, child_node.y, child_node, opts)
+          end)
+        end)
+      end)
+
+    #  TODO: remove me
+    # rects =
+    #   Enum.flat_map(layers, fn layer ->
+    #     Enum.map(layer.groups, fn group -> rect(group, opts) end)
+    #   end)
+
+    # rects =
+    #   Enum.map(layers, fn layer ->
+    #     rect(layer, opts)
+    #   end)
+
+    # TODO: remove rects
+    {circles, [], [], opts}
   end
 
-  # defp build(%Layer{} = layer, opts) do
-  #   arrows_and_circles =
-  #     layer.nodes
-  #     |> Enum.with_index()
-  #     |> Enum.flat_map(fn {node, node_index} ->
-  #       {x, y} = coordinate(layer, node_index, opts)
-  #
-  #       children_arrows =
-  #         Enum.flat_map(layer.children, fn child ->
-  #           arrows(x, y, child, opts)
-  #         end)
-  #
-  #       [circle(x, y, node, opts) | children_arrows]
-  #     end)
-  #
-  #   arrows_and_circles ++ Enum.flat_map(layer.children, fn child -> build(child, opts) end)
-  # end
+  defp calc_width(nodes_count, opts) do
+    nodes_count * opts.d + (nodes_count - 1) * opts.gap
+  end
 
-  # defp build(%Node{children: []} = node, opts) do
-  #   {x, y} = coordinate(node, opts)
-  #
-  #   [circle(x, y, node, opts)]
-  # end
+  defp calc_groups_positions(groups, layer_coordinates, opts) do
+    {updated_groups, _} =
+      Enum.reduce(groups, {[], layer_coordinates}, fn group, {new_groups, {last_start_x, y}} ->
+        actual_width = calc_width(group.length, opts)
 
-  # defp coordinate(node_or_layer, opts) do
-  #   x = (opts.d + opts.x_gap) * node_or_layer.pos + opts.r + opts.margin_left
-  #   y = (opts.d + opts.y_gap) * node_or_layer.level + opts.r + opts.margin_top
-  #
-  #   {x, y}
-  # end
+        # TODO: check if "d" is actually "r"
+        centered = last_start_x + group.width / 2 - actual_width / 2
 
-  # defp coordinate(%Layer{nodes: [_]} = layer, 0 = _node_index, opts) do
-  #   coordinate(layer, opts)
-  # end
+        group =
+          group
+          |> Map.merge(%{start_x: centered, start_y: y, actual_width: actual_width})
+          |> Map.update!(:nodes, fn nodes ->
+            nodes
+            |> Enum.with_index()
+            |> Enum.map(fn {layer_node, idx} ->
+              position = centered + idx * (opts.d + opts.gap)
+              Map.merge(layer_node, %{x: position, y: y, index: idx})
+            end)
+          end)
 
-  defp coordinate({layer, index}, {_layer_node, node_index}, opts) do
-    n_nodes = length(layer)
+        {[group | new_groups], {last_start_x + group.width + opts.gap, y}}
+      end)
 
-    # TODO: check how we can swap `layer.pos` (the index)
-    layer_x = (opts.d + opts.x_gap) * index + opts.r + opts.margin_left
-    layer_width = n_nodes * (opts.d + opts.x_gap)
-    layer_start_x = layer_x - layer_width / 2
+    Enum.reverse(updated_groups)
+  end
 
-    x = layer_start_x + node_index * layer_width / n_nodes
-    y = (opts.d + opts.y_gap) * index + opts.r + opts.margin_top
+  defp rect(group, opts) do
+    y = group.start_y - opts.r
 
-    {x, y}
+    y =
+      if rem(group.index, 2) == 0 do
+        y
+      else
+        y - opts.r / 2
+      end
+
+    %{x: group.start_x - opts.r, y: y, width: group.width}
   end
 
   defp circle(x, y, node, _opts) do
@@ -265,13 +336,6 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
 
   defp format_detail(node_data) do
     "#{node_data.detail}%"
-  end
-
-  defp graph_dimensions(circles, opts) do
-    max_height = Enum.max([@default_height | Enum.map(circles, fn circle -> circle.y end)])
-    max_width = Enum.max([@default_width | Enum.map(circles, fn circle -> circle.x end)])
-
-    {max_width + opts.x_gap, max_height}
   end
 
   # TODO: adapt arrows
@@ -325,51 +389,5 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   #   dy = (y2 - y1) * ratio
 
   #   {x1 + dx, y1 + dy}
-  # end
-
-  # def calc_span(%type{} = node) when type in [Node, Layer] do
-  #   {{_, min, max}, new_node} = calc_span(node, {-1, 0, 0})
-
-  #   %{new_node | min: min, max: max}
-  # end
-
-  # defp calc_span(%{children: []} = node, {last_pos, min, max}) do
-  #   new_last_pos = last_pos + 1
-
-  #   {{new_last_pos, min(min, new_last_pos), max(max, new_last_pos)}, %{node | pos: new_last_pos}}
-  # end
-
-  # defp calc_span(%{children: children} = node, {last_pos, min, max}) do
-  #   level = node.level + 1
-
-  #   {new_children, {new_last_pos, new_min, new_max}} =
-  #     Enum.reduce(children, {[], {last_pos, min, max}}, fn child,
-  #                                                          {cur_children, {last_pos, min, max}} ->
-  #       {{new_last_pos, new_min, new_max}, new_child} =
-  #         calc_span(%{child | level: level}, {last_pos, min, max})
-
-  #       {[new_child | cur_children], {new_last_pos, min(min, new_min), max(max, new_max)}}
-  #     end)
-
-  #   [%{pos: first_child_pos} | _] = Enum.reverse(new_children)
-  #   [%{pos: last_child_pos} | _] = new_children
-
-  #   center_pos = (first_child_pos + last_child_pos) / 2
-
-  #   {min, max} =
-  #     case node do
-  #       %Layer{} ->
-  #         half_length = length(node.nodes) / 2
-
-  #         min = center_pos - half_length
-  #         max = center_pos + half_length
-
-  #         {min(new_min, min), max(new_max, max)}
-
-  #       %Node{} ->
-  #         {min(new_min, first_child_pos), max(new_max, last_child_pos)}
-  #     end
-
-  #   {{new_last_pos, min, max}, %{node | children: Enum.reverse(new_children), pos: center_pos}}
   # end
 end
