@@ -1,6 +1,9 @@
 defmodule BroadwayDashboard.Teleporter do
+  @moduledoc false
+
   # It copies the base files to a node, in order
   # to track the pipelines.
+
   @modules [
     BroadwayDashboard.Counters,
     BroadwayDashboard.Metrics,

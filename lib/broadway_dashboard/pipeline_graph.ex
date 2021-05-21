@@ -1,4 +1,9 @@
 defmodule BroadwayDashboard.PipelineGraph do
+  @moduledoc false
+
+  # This module is responsible for calculating the
+  # layers of a given pipeline.
+
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.LiveDashboard.LayeGraphComponent
 

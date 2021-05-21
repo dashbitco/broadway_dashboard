@@ -1,8 +1,10 @@
 defmodule BroadwayDashboard do
   use Phoenix.LiveDashboard.PageBuilder, refresher?: false
 
-  # TODO: add docs
-  @moduledoc false
+  @moduledoc "README.md"
+             |> File.read!()
+             |> String.split("<!-- MDOC !-->")
+             |> Enum.fetch!(1)
 
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Metrics

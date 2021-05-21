@@ -1,4 +1,13 @@
 defmodule BroadwayDashboard.Telemetry do
+  @moduledoc false
+
+  # Measurements of pipelines are based on telemetry events.
+  #
+  # The load of a stage is calculated based on the time
+  # it took from the last execution to the current one.
+  # If this time is shorter, it means that the stage is
+  # doing more work.
+
   @measurable_start_stages [:processor, :batcher, :consumer]
 
   alias BroadwayDashboard.Counters

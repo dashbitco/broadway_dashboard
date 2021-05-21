@@ -1,14 +1,17 @@
 defmodule BroadwayDashboard.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+
   def project do
     [
       app: :broadway_dashboard,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       aliases: aliases(),
+      docs: docs(),
       deps: deps()
     ]
   end
@@ -29,7 +32,16 @@ defmodule BroadwayDashboard.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:plug_cowboy, "~> 2.0", only: :dev},
       {:jason, "~> 1.0", only: [:dev, :test, :docs]},
+      {:ex_doc, "~> 0.24.2", only: [:dev, :docs], runtime: false},
       {:floki, "~> 0.27.0", only: :test}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "BroadwayDashboard",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/dashbitco/broadway_dashboard"
     ]
   end
 

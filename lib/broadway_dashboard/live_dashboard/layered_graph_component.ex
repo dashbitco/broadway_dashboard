@@ -72,10 +72,14 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
   @max_diameter 80
 
   defmodule Arrow do
+    @moduledoc false
+
     defstruct [:x1, :y1, :x2, :y2]
   end
 
   defmodule Circle do
+    @moduledoc false
+
     defstruct [:id, :x, :y, :label, :detail, :show_detail?, :bg, :children]
   end
 
