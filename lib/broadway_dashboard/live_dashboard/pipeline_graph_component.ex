@@ -73,6 +73,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     # Note that margin top, X and Y gaps are relative to the size of a circle.
     # The circle size is calculated.
     opts = %{
+      show_grid?: false,
       view_box_width: 1000,
       view_box_height: 1000,
       max_nodes_before_scale_up: 10,
@@ -85,7 +86,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       y_detail_offset: opts[:y_detail_offset] || 18
     }
 
-    {circles, arrows, rects, opts} = build(layers, opts)
+    {circles, arrows, opts} = build(layers, opts)
 
     ~L"""
     <%= if @title do %>
@@ -127,13 +128,11 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
             </pattern>
           </defs>
 
+          <rect width="<%= if opts.show_grid?, do: "100%", else: 0 %>" height="100%" fill="url(#grid)" />
 
           <%= for arrow <- arrows do %>
             <line x1="<%= arrow.x1 %>" y1="<%= arrow.y1 %>" x2="<%= arrow.x2 %>" y2="<%= arrow.y2 %>" class="graph-line" marker-end="url(#arrow)"/>
           <% end %>
-          <%= for rect <- rects do %>
-            <rect x="<%= rect.x %>" y="<%= rect.y %>" width="<%= rect.width %>" height="<%= opts.d %>" fill="#ccc" stroke="pink" />
-          <% end %> 
           <%= for circle <- circles do %>
            <g>
             <circle fill="<%= circle.bg %>" cx="<%= circle.x %>" cy="<%= circle.y %>" r="<%= opts.r %>" class="graph-circle" />
