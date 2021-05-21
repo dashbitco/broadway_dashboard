@@ -23,8 +23,7 @@ defmodule BroadwayDashboard.PipelineGraphComponentTest do
     assert content =~ hint
     assert content =~ title
 
-    # TODO: draw lines
-    # assert content =~ "<line"
+    assert content =~ "<line"
     assert content =~ "<text"
 
     fragment = Floki.parse_fragment!(content)
