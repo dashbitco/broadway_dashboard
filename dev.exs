@@ -129,31 +129,10 @@ defmodule DemoWeb.Router do
     get "/", DemoWeb.PageController, :index
 
     live_dashboard("/dashboard",
-      env_keys: ["USER", "ROOTDIR"],
       allow_destructive_actions: true,
       additional_pages: [
         broadway: {BroadwayDashboard, pipelines: [Demo.Pipeline, BikeSharing]}
-      ],
-      csp_nonce_assign_key: %{
-        img: :img_csp_nonce,
-        style: :style_csp_nonce,
-        script: :script_csp_nonce
-      }
-    )
-  end
-
-  def put_csp(conn, _opts) do
-    [img_nonce, style_nonce, script_nonce] =
-      for _i <- 1..3, do: 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
-
-    conn
-    |> assign(:img_csp_nonce, img_nonce)
-    |> assign(:style_csp_nonce, style_nonce)
-    |> assign(:script_csp_nonce, script_nonce)
-    |> put_resp_header(
-      "content-security-policy",
-      "default-src; script-src 'nonce-#{script_nonce}'; style-src 'nonce-#{style_nonce}'; " <>
-        "img-src 'nonce-#{img_nonce}' data: ; font-src data: ; connect-src 'self'; frame-src 'self' ;"
+      ]
     )
   end
 end
