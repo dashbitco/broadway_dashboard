@@ -1,4 +1,4 @@
-defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
+defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
   use Phoenix.LiveDashboard.Web, :live_component
 
   @moduledoc """
@@ -6,19 +6,35 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
 
   This is useful to represent pipelines like we have on
   [BroadwayDashboard](https://hexdocs.pm/broadway_dashboard) where
-  each layer points to all nodes of the layer below.
+  each layer points to nodes of the layer below.
   It draws the layers from top to bottom.
 
-  See: https://en.wikipedia.org/wiki/Layered_graph_drawing
-
-  The calculation of layers and node positions is done automatically
-  based on options. But the expected structure is a layer with multiple
-  nodes and children layers. The bottom layers can have node children.
+  The calculation of layers and positions is done automatically
+  based on options.
 
   ## Options
 
-    * `:layers` - a graph of layers with nodes. They represent
-      our graph structure (see example).
+    * `:title` - The title of the component. Default: `nil`.
+
+    * `:hint` - A textual hint to show close to the title. Default: `nil`.
+
+    * `:layers` - A graph of layers with nodes. They represent
+      our graph structure (see example). Each layer is a list
+      of nodes, where each node has the following fields:
+
+      - `:id` - The ID of the given node.
+      - `:children` - The IDs of children nodes.
+      - `:data` - A string or a map. If it's a map, the required fields
+        are `detail` and `label`.
+
+    * `:show_grid?` - Enable or disable the display of a grid. This
+      is useful for development. Default: `false`.
+
+    * `:y_label_offset` - The offset of label position relative to the
+      center of its circle in the Y axis. Default: `5`.
+
+    * `:y_detail_offset` - The offset of detail position relative to the
+      center of its circle in the Y axis. Default: `18`.
 
   ## Examples
 
@@ -28,8 +44,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       ...>       id: MyPipeline.Broadway.Producer_0,
       ...>       data: %{
       ...>         detail: 0,
-      ...>         label: "prod_0",
-      ...>         show_detail?: false
+      ...>         label: "prod_0"
       ...>       },
       ...>       children: [MyPipeline.Broadway.Processor_default_0]
       ...>     }
@@ -45,12 +60,16 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       ...>      }
       ...>    ]
       ...> ]
-      iex> pipeline_graph(layers: layers, title: "Pipeline", hint: "A pipeline", opts: [r: 32])
+      iex> layered_graph(layers: layers, title: "Pipeline", hint: "A pipeline")
   """
 
-  @max_diameter 80
+  @type node_data :: binary() | %{label: binary(), detail: term()}
+  @type node_id :: term()
+  @type layer_node :: %{id: node_id(), children: [node_id()], data: node_data()}
+  @type layer :: [layer_node()]
+  @type layers :: [layer()]
 
-  # TODO: move this module to PhoenixLiveDashboard project
+  @max_diameter 80
 
   defmodule Arrow do
     defstruct [:x1, :y1, :x2, :y2]
@@ -68,22 +87,19 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   @impl true
   def render(assigns) do
     layers = assigns.layers
-    opts = Map.get(assigns, :opts, [])
 
-    # Note that margin top, X and Y gaps are relative to the size of a circle.
-    # The circle size is calculated.
+    # Note that the view box can change dynamically based on the size of layers.
     opts = %{
-      show_grid?: false,
       view_box_width: 1000,
       view_box_height: 1000,
       max_nodes_before_scale_up: 10,
       node_diameter_for_scale_up: 100,
       scale_up: false,
-      margin_top: 0.5,
       x_gap: 0.2,
       y_gap: 1.0,
-      y_label_offset: opts[:y_label_offset] || 5,
-      y_detail_offset: opts[:y_detail_offset] || 18
+      show_grid?: Map.get(assigns, :show_grid?, false),
+      y_label_offset: Map.get(assigns, :y_label_offset, 5),
+      y_detail_offset: Map.get(assigns, :y_detail_offset, 18)
     }
 
     {circles, arrows, opts} = build(layers, opts)

@@ -1,5 +1,6 @@
 defmodule BroadwayDashboard.PipelineGraph do
   alias BroadwayDashboard.Counters
+  alias BroadwayDashboard.LiveDashboard.LayeGraphComponent
 
   # TODO: maybe move type definitions to Broadway.topology/1
   @type topology_desc :: %{
@@ -9,13 +10,7 @@ defmodule BroadwayDashboard.PipelineGraph do
         }
   @type topology_item :: {:producers | :processors | :batchers, topology_desc()}
 
-  # TODO: maybe move this to the component?
-  @type node_data :: binary() | %{label: binary(), detail: term()}
-  @type node_id :: term()
-  @type layer_node :: %{id: node_id(), children: [node_id()], data: node_data()}
-  @type layer :: [layer_node()]
-
-  @spec build_layers(atom(), [topology_item()]) :: [layer()]
+  @spec build_layers(atom(), [topology_item()]) :: [LayeGraphComponent.layer()]
   def build_layers(pipeline, topology) when is_atom(pipeline) and is_list(topology) do
     # The order of steps is important here.
     steps =

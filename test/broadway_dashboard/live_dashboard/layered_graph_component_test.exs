@@ -1,4 +1,4 @@
-defmodule BroadwayDashboard.PipelineGraphComponentTest do
+defmodule BroadwayDashboard.LayeredGraphComponentTest do
   use ExUnit.Case, async: true
 
   # TODO: move this test to PhoenixLiveDashboard project
@@ -6,7 +6,7 @@ defmodule BroadwayDashboard.PipelineGraphComponentTest do
   import Phoenix.LiveViewTest
   @endpoint Phoenix.LiveDashboardTest.Endpoint
 
-  alias BroadwayDashboard.LiveDashboard.PipelineGraphComponent
+  alias BroadwayDashboard.LiveDashboard.LayeredGraphComponent
 
   test "renders a basic pipeline" do
     title = "my pipeline"
@@ -14,7 +14,7 @@ defmodule BroadwayDashboard.PipelineGraphComponentTest do
     layers = build_layers()
 
     content =
-      render_component(PipelineGraphComponent,
+      render_component(LayeredGraphComponent,
         layers: layers,
         hint: hint,
         title: title
