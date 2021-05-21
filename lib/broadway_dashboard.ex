@@ -68,7 +68,6 @@ defmodule BroadwayDashboard do
           {:ok, assign(socket, pipeline: pipeline, stats: stats)}
         else
           {:error, error} ->
-            # TODO: have a better error message
             {:ok, assign(socket, pipeline: nil, error: error)}
         end
 

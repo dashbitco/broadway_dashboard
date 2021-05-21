@@ -24,8 +24,6 @@ defmodule BroadwayDashboard.Telemetry do
     :telemetry.detach({__MODULE__, parent})
   end
 
-  # TODO: check if this is OK/secure to handle restarts
-  # Or if this is really necessary.
   def handle_event([:broadway, :topology, :init], _, metadata, _) do
     BroadwayDashboard.Metrics.ensure_counters_restarted(metadata.config[:name])
   end
@@ -63,7 +61,6 @@ defmodule BroadwayDashboard.Telemetry do
     measure_stop(measurements, metadata)
   end
 
-  # TODO: confirm if exceptions are counted as failed messages in the processors.
   def handle_event([:broadway, :processor, :message, :exception], _measurements, metadata, _) do
     :ok =
       Counters.incr(
