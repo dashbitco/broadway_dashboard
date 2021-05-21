@@ -19,16 +19,6 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
 
     * `:layers` - a graph of layers with nodes. They represent
       our graph structure (see example).
-    * `:opts` - drawing options
-      * `:r` - the ratio of our circles.
-      * `:width` - the width in pixels of our drawing area (optional).
-        A scroll is added if graph is bigger than our drawing area.
-      * `:margin_top` - the top margin in pixels.
-      * `:margin_left` - the left margin in pixels.
-      * `:x_gap` - the horizontal gap between circles.
-      * `:y_gap` - the vertical gap between circles.
-      * `:y_label_offset` - the vertical offset for the circle label.
-      * `:y_detail_offset` - the vertical offset for the circle detail.
 
   ## Examples
 
@@ -58,7 +48,7 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       iex> pipeline_graph(layers: layers, title: "Pipeline", hint: "A pipeline", opts: [r: 32])
   """
 
-  @max_node_width 75
+  @max_diameter 80
 
   # TODO: move this module to PhoenixLiveDashboard project
 
@@ -85,6 +75,9 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     opts = %{
       view_box_width: 1000,
       view_box_height: 1000,
+      max_nodes_before_scale_up: 10,
+      node_diameter_for_scale_up: 100,
+      scale_up: false,
       margin_top: 0.5,
       x_gap: 0.2,
       y_gap: 1.0,
@@ -104,8 +97,11 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       </h5>
     <% end %>
     <div class="card">
-      <div class="card-body card-graph broadway-dashboard" style="overflow-x: auto; min-height: 680px">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 <%= opts.view_box_width%> <%= opts.view_box_height %>">
+      <div class="card-body card-graph broadway-dashboard" style="overflow-x: auto;">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 <%= opts.view_box_width%> <%= opts.view_box_height %>"
+        style="width: <%= if opts.scale_up, do: opts.scale_up, else: 100 %>%;">
           <style>
             .graph-line {
               stroke: #dae0ee;
@@ -158,22 +154,24 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
   defp build(layers, opts) do
     max_nodes = Enum.max(Enum.map(layers, &length/1))
 
-    node_width = opts.view_box_width / (max_nodes + (max_nodes - 1) * opts.x_gap)
+    opts = maybe_scale_up(max_nodes, opts)
 
-    node_width =
-      if node_width > @max_node_width do
-        @max_node_width
+    diameter = opts.view_box_width / (max_nodes + (max_nodes - 1) * opts.x_gap)
+
+    diameter =
+      if diameter > @max_diameter do
+        @max_diameter
       else
-        node_width
+        diameter
       end
 
-    radius = node_width / 2
+    radius = diameter / 2
 
-    gap = node_width * opts.x_gap
+    gap = diameter * opts.x_gap
 
     opts =
       opts
-      |> Map.put_new(:d, node_width)
+      |> Map.put_new(:d, diameter)
       |> Map.put_new(:r, radius)
       |> Map.put_new(:gap, gap)
 
@@ -280,6 +278,19 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
     {circles, arrows, [], opts}
   end
 
+  defp maybe_scale_up(max_nodes, opts) do
+    if max_nodes > opts.max_nodes_before_scale_up do
+      extra_nodes = max_nodes - opts.max_nodes_before_scale_up
+      new_view_box = opts.view_box_width + extra_nodes * opts.node_diameter_for_scale_up
+
+      opts
+      |> Map.put(:view_box_width, new_view_box)
+      |> Map.put(:scale_up, new_view_box * 100 / opts.view_box_width)
+    else
+      opts
+    end
+  end
+
   defp calc_width(nodes_count, opts) do
     nodes_count * opts.d + (nodes_count - 1) * opts.gap
   end
@@ -289,7 +300,6 @@ defmodule BroadwayDashboard.LiveDashboard.PipelineGraphComponent do
       Enum.reduce(groups, {[], layer_coordinates}, fn group, {new_groups, {last_start_x, y}} ->
         actual_width = calc_width(group.length, opts)
 
-        # TODO: check if "d" is actually "r"
         centered = last_start_x + group.width / 2 - actual_width / 2
 
         group =
