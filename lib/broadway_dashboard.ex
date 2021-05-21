@@ -82,12 +82,9 @@ defmodule BroadwayDashboard do
   end
 
   defp to_existing_atom_or_nil(nav) do
-    try do
-      String.to_existing_atom(nav)
-    rescue
-      ArgumentError ->
-        nil
-    end
+    String.to_existing_atom(nav)
+  rescue
+    ArgumentError -> nil
   end
 
   @impl true

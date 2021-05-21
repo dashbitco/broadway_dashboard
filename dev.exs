@@ -56,7 +56,7 @@ defmodule Demo.Pipeline do
   def handle_batch(:s3, messages, _, _), do: messages
 
   defp pick_batcher_key do
-    Enum.shuffle([:default, :s3]) |> List.first()
+    Enum.random([:default, :s3])
   end
 end
 
