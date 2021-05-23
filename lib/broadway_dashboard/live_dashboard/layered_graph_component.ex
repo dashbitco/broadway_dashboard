@@ -193,64 +193,22 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
       |> Map.put_new(:d, diameter)
       |> Map.put_new(:r, radius)
       |> Map.put_new(:gap, gap)
-
-    view_box_middle = opts.view_box_width / 2
+      |> Map.put_new(:groups_gap, gap * 3)
 
     layers =
       layers
       |> Enum.with_index()
       |> Enum.map(fn {layer, index} ->
-        groups =
-          layer
-          |> Enum.chunk_by(&Enum.sort(&1.children))
-          |> Enum.with_index()
-          |> Enum.map(fn {group, group_index} ->
-            group_size = length(group)
-
-            [member | _] = group
-            children_size = length(member.children)
-
-            length_for_width =
-              if children_size > group_size do
-                children_size
-              else
-                group_size
-              end
-
-            width = calc_width(length_for_width, opts)
-
-            %{
-              index: group_index,
-              length: group_size,
-              width: width,
-              nodes: group,
-              children: member.children,
-              center_on_children?: children_size > group_size
-            }
-          end)
-
-        len = length(layer)
-        # TODO: add more gap in case group children are not shared
-        group_gaps = opts.gap * (length(groups) - 1)
-
-        width =
-          group_gaps +
-            (groups
-             |> Enum.map(& &1.width)
-             |> Enum.sum())
-
-        start_x = opts.r + view_box_middle - width / 2
-        start_y = index * opts.d * (1 + opts.y_gap) + opts.y_gap * opts.d
+        groups = group_nodes_by_children(layer, opts)
 
         %{
-          length: len,
-          width: width,
-          start_x: start_x,
-          start_y: start_y,
           index: index,
-          groups: calc_groups_positions(groups, {start_x, start_y}, opts)
+          group_size: length(groups),
+          groups: groups
         }
       end)
+      |> adjust_child_layers_in_groups()
+      |> calculate_layers_positions(opts)
 
     circles =
       layers
@@ -302,6 +260,101 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     end
   end
 
+  defp group_nodes_by_children(layer, _opts) do
+    layer
+    |> Enum.chunk_by(&Enum.sort(&1.children))
+    |> Enum.with_index()
+    |> Enum.map(fn {group, group_index} ->
+      [member | _] = group
+
+      %{
+        index: group_index,
+        nodes: group,
+        children: member.children
+      }
+    end)
+  end
+
+  defp adjust_child_layers_in_groups(layers) do
+    pairs = Enum.chunk_every(layers, 2)
+
+    Enum.flat_map(pairs, fn
+      [parent, child] = pair ->
+        if parent.group_size > 1 && child.group_size == 1 do
+          parent_uniq_groups = Enum.uniq_by(parent.groups, &Enum.sort(&1.children))
+
+          # TODO: consider removing this conditional, since it seems to be always true
+          if length(parent_uniq_groups) == parent.group_size do
+            [%{nodes: nodes}] = child.groups
+            [%{children: child_children} | _] = nodes
+            child_nodes = Enum.map(nodes, fn n -> {n.id, n} end) |> Map.new()
+
+            groups =
+              Enum.map(parent.groups, fn group ->
+                %{
+                  index: group.index,
+                  children: child_children,
+                  nodes:
+                    Enum.map(group.children, fn child_id -> Map.fetch!(child_nodes, child_id) end),
+                  length: length(group.children)
+                }
+              end)
+
+            [parent, %{child | groups: groups, group_size: length(groups)}]
+          else
+            pair
+          end
+        else
+          pair
+        end
+
+      [_solo] = pair ->
+        pair
+    end)
+  end
+
+  defp calculate_layers_positions(layers, opts) do
+    view_box_middle = opts.view_box_width / 2
+
+    Enum.map(layers, fn layer ->
+      groups = calculate_groups_sizes(layer.groups, opts)
+
+      group_gaps = opts.groups_gap * (length(groups) - 1)
+
+      width =
+        group_gaps +
+          (groups
+           |> Enum.map(& &1.width)
+           |> Enum.sum())
+
+      start_x = opts.r + view_box_middle - width / 2
+      start_y = layer.index * opts.d * (1 + opts.y_gap) + opts.y_gap * opts.d
+
+      %{
+        width: width,
+        start_x: start_x,
+        start_y: start_y,
+        groups: calc_groups_positions(groups, {start_x, start_y}, opts)
+      }
+    end)
+  end
+
+  defp calculate_groups_sizes(groups, opts) do
+    Enum.map(groups, fn group ->
+      children_size = length(group.children)
+      group_size = length(group.nodes)
+
+      length_for_width = max(children_size, group_size)
+
+      width = calc_width(length_for_width, opts)
+
+      group
+      |> Map.put(:width, width)
+      |> Map.put(:length, group_size)
+      |> Map.put(:center_on_children?, children_size > group_size)
+    end)
+  end
+
   defp calc_width(nodes_count, opts) do
     nodes_count * opts.d + (nodes_count - 1) * opts.gap
   end
@@ -325,24 +378,11 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
             end)
           end)
 
-        {[group | new_groups], {last_start_x + group.width + opts.gap, y}}
+        {[group | new_groups], {last_start_x + group.width + opts.groups_gap, y}}
       end)
 
     Enum.reverse(updated_groups)
   end
-
-  # defp rect(group, opts) do
-  #   y = group.start_y - opts.r
-  #
-  #   y =
-  #     if rem(group.index, 2) == 0 do
-  #       y
-  #     else
-  #       y - opts.r / 2
-  #     end
-  #
-  #   %{x: group.start_x - opts.r, y: y, width: group.width}
-  # end
 
   defp circle(node, _opts) do
     background = background(node.data)
