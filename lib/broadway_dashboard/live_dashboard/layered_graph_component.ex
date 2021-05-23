@@ -177,12 +177,7 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
 
     diameter = opts.view_box_width / (max_nodes + (max_nodes - 1) * opts.x_gap)
 
-    diameter =
-      if diameter > @max_diameter do
-        @max_diameter
-      else
-        diameter
-      end
+    diameter = min(diameter, @max_diameter)
 
     radius = diameter / 2
 
@@ -211,14 +206,10 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
       |> calculate_layers_positions(opts)
 
     circles =
-      layers
-      |> Enum.flat_map(fn layer ->
-        Enum.flat_map(layer.groups, fn group ->
-          Enum.map(group.nodes, fn child_node ->
-            circle(child_node, opts)
-          end)
-        end)
-      end)
+      for layer <- layers,
+          group <- layer.groups,
+          node <- group.nodes,
+          do: circle(node, opts)
 
     circles_map = circles |> Enum.map(fn circle -> {circle.id, circle} end) |> Map.new()
 
