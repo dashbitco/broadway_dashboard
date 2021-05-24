@@ -1,24 +1,25 @@
-defmodule BroadwayDashboard.LayeredGraphComponentTest do
+defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponentTest do
   use ExUnit.Case, async: true
 
-  # TODO: move this test to PhoenixLiveDashboard project
-  #
   import Phoenix.LiveViewTest
   @endpoint Phoenix.LiveDashboardTest.Endpoint
 
   alias BroadwayDashboard.LiveDashboard.LayeredGraphComponent
+
+  setup do
+    # TODO: investigate why the module is not loaded automatically.
+    # Possible a bug.
+    Code.ensure_loaded(LayeredGraphComponent)
+
+    :ok
+  end
 
   test "renders a basic pipeline" do
     title = "my pipeline"
     hint = "a Broadway pipeline represented as a graph"
     layers = build_layers()
 
-    content =
-      render_component(LayeredGraphComponent,
-        layers: layers,
-        hint: hint,
-        title: title
-      )
+    content = render_component(LayeredGraphComponent, layers: layers, hint: hint, title: title)
 
     assert content =~ hint
     assert content =~ title
