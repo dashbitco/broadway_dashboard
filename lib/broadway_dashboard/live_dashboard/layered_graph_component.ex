@@ -120,7 +120,7 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
      assign(socket,
        arrows: arrows,
        circles: circles,
-       hint: assigns.hint,
+       hint: Map.get(assigns, :hint),
        title: assigns.title,
        radius: updated_opts.r,
        scale_up: updated_opts.scale_up,
