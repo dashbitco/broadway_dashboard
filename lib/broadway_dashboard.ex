@@ -230,11 +230,35 @@ defmodule BroadwayDashboard do
       components: [
         columns(
           components: [
-            {LayeredGraphComponent, [layers: layers, title: "Pipeline", hint: @hint]}
+            {LayeredGraphComponent,
+             [
+               layers: layers,
+               title: "Pipeline",
+               hint: @hint,
+               background: &background/1,
+               format_detail: &format_detail/1
+             ]}
           ]
         )
       ]
     )
+  end
+
+  defp background(node_data) when is_binary(node_data) do
+    "gray"
+  end
+
+  defp background(node_data) do
+    # This calculation is defining the Hue portion of the HSL color function.
+    # By definition, the value 0 is red and the value 120 is green.
+    # See: https://developer.mozilla.org/en-US/docs/Web/CSS/color_value#hsl_colors
+    hue = 100 - node_data.detail
+
+    "hsl(#{hue}, 80%, 35%)"
+  end
+
+  defp format_detail(node_data) do
+    "#{node_data.detail}%"
   end
 
   defp check_broadway_version(node) do

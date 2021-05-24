@@ -36,6 +36,16 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     * `:y_detail_offset` - The offset of detail position relative to the
       center of its circle in the Y axis. Default: `18`.
 
+    * `:background` - A function that calculates the background for a
+      node based on it's data. Default: `fn _node_data -> "gray" end`.
+
+    * `:format_label` - A function that formats the label. Defaults
+      to a function that returns the label or data if data is binary.
+
+    * `:format_detail` - A function that formats the detail field.
+      This is only going to be called if data is a map.
+      Default: `fn node_data -> node_data.detail end`.
+
   ## Examples
 
       iex> layers = [
@@ -89,9 +99,7 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
   end
 
   @impl true
-  def render(assigns) do
-    layers = assigns.layers
-
+  def update(assigns, socket) do
     # Note that the view box can change dynamically based on the size of layers.
     opts = %{
       view_box_width: 1000,
@@ -101,13 +109,31 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
       scale_up: false,
       x_gap: 0.2,
       y_gap: 1.0,
-      show_grid?: Map.get(assigns, :show_grid?, false),
-      y_label_offset: Map.get(assigns, :y_label_offset, 5),
-      y_detail_offset: Map.get(assigns, :y_detail_offset, 18)
+      background: Map.get(assigns, :background, fn _node_data -> "gray" end),
+      format_label: Map.get(assigns, :format_label, &default_formatter/1),
+      format_detail: Map.get(assigns, :format_detail, fn node_data -> node_data.detail end)
     }
 
-    {circles, arrows, opts} = build(layers, opts)
+    {circles, arrows, updated_opts} = build(assigns.layers, opts)
 
+    {:ok,
+     assign(socket,
+       arrows: arrows,
+       circles: circles,
+       hint: assigns.hint,
+       title: assigns.title,
+       radius: updated_opts.r,
+       scale_up: updated_opts.scale_up,
+       view_box_width: updated_opts.view_box_width,
+       view_box_height: updated_opts.view_box_height,
+       show_grid?: Map.get(assigns, :show_grid?, false),
+       y_label_offset: Map.get(assigns, :y_label_offset, 5),
+       y_detail_offset: Map.get(assigns, :y_detail_offset, 18)
+     )}
+  end
+
+  @impl true
+  def render(assigns) do
     ~L"""
     <%= if @title do %>
       <h5 class="card-title">
@@ -121,8 +147,8 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
       <div class="card-body card-graph broadway-dashboard" style="overflow-x: auto;">
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 <%= opts.view_box_width%> <%= opts.view_box_height %>"
-        style="width: <%= if opts.scale_up, do: opts.scale_up, else: 100 %>%;">
+        viewBox="0 0 <%= @view_box_width%> <%= @view_box_height %>"
+        style="width: <%= if @scale_up, do: @scale_up, else: 100 %>%;">
           <style>
             .graph-line {
               stroke: #dae0ee;
@@ -148,19 +174,21 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
             </pattern>
           </defs>
 
-          <rect width="<%= if opts.show_grid?, do: "100%", else: 0 %>" height="100%" fill="url(#grid)" />
+          <%= if @show_grid? do %>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          <% end %>
 
-          <%= for arrow <- arrows do %>
+          <%= for arrow <- @arrows do %>
             <line x1="<%= arrow.x1 %>" y1="<%= arrow.y1 %>" x2="<%= arrow.x2 %>" y2="<%= arrow.y2 %>" class="graph-line" marker-end="url(#arrow)"/>
           <% end %>
-          <%= for circle <- circles do %>
+          <%= for circle <- @circles do %>
            <g>
-            <circle fill="<%= circle.bg %>" cx="<%= circle.x %>" cy="<%= circle.y %>" r="<%= opts.r %>" class="graph-circle" />
+            <circle fill="<%= circle.bg %>" cx="<%= circle.x %>" cy="<%= circle.y %>" r="<%= @radius %>" class="graph-circle" />
             <%= if circle.show_detail? do %>
               <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y %>" class="graph-circle-label"><%= circle.label %></text>
-              <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y + opts.y_detail_offset %>" class="graph-circle-detail"><%= circle.detail %></text>
+              <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y + @y_detail_offset %>" class="graph-circle-detail"><%= circle.detail %></text>
             <% else %>
-              <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y + opts.y_label_offset %>" class="graph-circle-label"><%= circle.label %></text>
+              <text text-anchor="middle" x="<%= circle.x %>" y="<%= circle.y + @y_label_offset %>" class="graph-circle-label"><%= circle.label %></text>
             <% end %>
            </g>
           <% end %>
@@ -176,7 +204,6 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     opts = maybe_scale_width_up(max_nodes, opts)
 
     diameter = opts.view_box_width / (max_nodes + (max_nodes - 1) * opts.x_gap)
-
     diameter = min(diameter, @max_diameter)
 
     radius = diameter / 2
@@ -185,10 +212,10 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
 
     opts =
       opts
-      |> Map.put_new(:d, diameter)
-      |> Map.put_new(:r, radius)
-      |> Map.put_new(:gap, gap)
-      |> Map.put_new(:groups_gap, gap * 3)
+      |> Map.put(:d, diameter)
+      |> Map.put(:r, radius)
+      |> Map.put(:gap, gap)
+      |> Map.put(:groups_gap, gap * 3)
 
     layers =
       layers
@@ -214,12 +241,10 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     circles_map = circles |> Enum.map(fn circle -> {circle.id, circle} end) |> Map.new()
 
     arrows =
-      Enum.flat_map(circles, fn circle ->
-        Enum.map(circle.children, fn child_id ->
-          child = Map.fetch!(circles_map, child_id)
-          arrow({circle.x, circle.y}, {child.x, child.y}, opts)
-        end)
-      end)
+      for circle <- circles, child_id <- circle.children do
+        child = Map.fetch!(circles_map, child_id)
+        arrow({circle.x, circle.y}, {child.x, child.y}, opts)
+      end
 
     opts = adjust_view_box_height(layers, opts)
 
@@ -240,15 +265,14 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
   end
 
   defp adjust_view_box_height(layers, opts) do
-    max_layer_y = Enum.map(layers, & &1.start_y) |> Enum.max()
+    max_layer_y =
+      layers
+      |> Enum.map(& &1.start_y)
+      |> Enum.max()
 
     bottom_end = max_layer_y + opts.d * (opts.y_gap + 0.2)
 
-    if bottom_end != opts.view_box_height do
-      Map.put(opts, :view_box_height, bottom_end)
-    else
-      opts
-    end
+    Map.put(opts, :view_box_height, bottom_end)
   end
 
   defp group_nodes_by_children(layer, _opts) do
@@ -266,15 +290,25 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     end)
   end
 
+  # The idea of this function is to split children nodes that
+  # are in a layer above the parent, but have one group only.
+  # It helps in adding a "gap" between siblings in the same
+  # children group.
+  #
+  # It does the following:
+  # - group layers by pair, so we can work with parent / children.
+  # - check if the parent has more than one group AND children are in one group.
+  # - if so, then check if none of the groups share children.
+  # - then it splits children in groups, just like its parents.
   defp adjust_child_layers_in_groups(layers) do
     pairs = Enum.chunk_every(layers, 2)
 
     Enum.flat_map(pairs, fn
       [parent, child] = pair ->
         if parent.group_size > 1 && child.group_size == 1 do
+          # This will prevent that parents share children nodes.
           parent_uniq_groups = Enum.uniq_by(parent.groups, &Enum.sort(&1.children))
 
-          # TODO: consider removing this conditional, since it seems to be always true
           if length(parent_uniq_groups) == parent.group_size do
             [%{nodes: nodes}] = child.groups
             [%{children: child_children} | _] = nodes
@@ -304,6 +338,11 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     end)
   end
 
+  # Here is where all positioning starts to happen.
+  # For each layer we measure the size of the groups plus
+  # the gap between groups.
+  # Then we calculate the start "X" of that layer.
+  # Based on that start, we calculate the groups positions.
   defp calculate_layers_positions(layers, opts) do
     view_box_middle = opts.view_box_width / 2
 
@@ -350,6 +389,12 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     nodes_count * opts.d + (nodes_count - 1) * opts.gap
   end
 
+  # Groups positions have the same idea of layer positioning.
+  # The difference is that we also calculate the node positions
+  # based on its index inside the group.
+  #
+  # We start with the layer position and then we "move the cursor"
+  # to the next group.
   defp calc_groups_positions(groups, layer_coordinates, opts) do
     {updated_groups, _} =
       Enum.reduce(groups, {[], layer_coordinates}, fn group, {new_groups, {last_start_x, y}} ->
@@ -375,9 +420,10 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     Enum.reverse(updated_groups)
   end
 
-  defp circle(node, _opts) do
-    background = background(node.data)
-    detail = format_detail(node.data)
+  defp circle(node, opts) do
+    background = opts.background.(node.data)
+    label = opts.format_label.(node.data)
+    detail = if is_map(node.data), do: opts.format_detail.(node.data)
 
     %Circle{
       id: node.id,
@@ -385,34 +431,14 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
       x: node.x,
       y: node.y,
       bg: background,
-      label: if(is_map(node.data), do: node.data.label, else: node.data),
+      label: label,
       detail: detail,
       show_detail?: is_map(node.data)
     }
   end
 
-  # TODO: let this be configurable
-  defp background(node_data) when is_binary(node_data) do
-    "gray"
-  end
-
-  defp background(node_data) do
-    # This calculation is defining the Hue portion of the HSL color function.
-    # By definition, the value 0 is red and the value 120 is green.
-    # See: https://developer.mozilla.org/en-US/docs/Web/CSS/color_value#hsl_colors
-    hue = 100 - node_data.detail
-
-    "hsl(#{hue}, 80%, 35%)"
-  end
-
-  # TODO: let this be configurable
-  defp format_detail(node_data) when is_binary(node_data) do
-    "#{node_data}%"
-  end
-
-  defp format_detail(node_data) do
-    "#{node_data.detail}%"
-  end
+  defp default_formatter(node_data) when is_binary(node_data), do: node_data
+  defp default_formatter(node_data), do: node_data.label
 
   defp arrow({px, py}, {x, y}, opts) do
     distance = :math.sqrt(:math.pow(x - px, 2) + :math.pow(y - py, 2))
