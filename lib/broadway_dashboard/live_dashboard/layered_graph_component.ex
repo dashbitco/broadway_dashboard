@@ -132,6 +132,35 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
      )}
   end
 
+  def normalize_params(params) do
+    case Map.fetch(params, :layers) do
+      :error ->
+        raise ArgumentError, "the :layers parameter is expected in layered graph component"
+
+      {:ok, no_list} when not is_list(no_list) ->
+        msg = ":layers parameter must be a list, got: "
+        raise ArgumentError, msg <> inspect(no_list)
+
+      {:ok, layers} ->
+        all_nodes_validation =
+          for layer <- layers,
+              node <- layer,
+              do:
+                match?(
+                  %{id: _, children: children, data: data}
+                  when is_list(children) and (is_binary(data) or is_map(data)),
+                  node
+                )
+
+        if Enum.all?(all_nodes_validation) do
+          params
+        else
+          msg = ":layers parameter must be a list of lists that contain nodes, got: "
+          raise ArgumentError, msg <> inspect(layers)
+        end
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~L"""

@@ -14,6 +14,33 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponentTest do
     :ok
   end
 
+  describe "normalize_params/1" do
+    test "validate layers" do
+      assert %{layers: _} = LayeredGraphComponent.normalize_params(%{layers: []})
+
+      assert %{layers: _} =
+               LayeredGraphComponent.normalize_params(%{
+                 layers: [
+                   [%{id: 0, children: [1, 2], data: "0"}],
+                   [%{id: 1, children: [], data: "1"}, %{id: 2, children: [], data: "2"}]
+                 ]
+               })
+
+      assert_raise(ArgumentError, ~r/layers parameter is expected/, fn ->
+        LayeredGraphComponent.normalize_params(%{})
+      end)
+
+      assert_raise(ArgumentError, ~r/layers parameter must be a list, got/, fn ->
+        LayeredGraphComponent.normalize_params(%{layers: "foo"})
+      end)
+
+      assert_raise(ArgumentError, ~r/parameter must be a list of lists that contain nodes/, fn ->
+        # Without ID
+        LayeredGraphComponent.normalize_params(%{layers: [[%{data: "0", children: [1, 2]}]]})
+      end)
+    end
+  end
+
   describe "rendering" do
     defp circles_and_arrows_count(content) do
       fragment = Floki.parse_fragment!(content)
