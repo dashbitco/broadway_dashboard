@@ -51,26 +51,23 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
       iex> layers = [
       ...>   [
       ...>     %{
-      ...>       id: MyPipeline.Broadway.Producer_0,
-      ...>       data: %{
-      ...>         detail: 0,
-      ...>         label: "prod_0"
-      ...>       },
-      ...>       children: [MyPipeline.Broadway.Processor_default_0]
+      ...>       id: "a1",
+      ...>       data: "a1",
+      ...>       children: ["b1"]
       ...>     }
       ...>   ],
       ...>   [
       ...>     %{
-      ...>       id: MyPipeline.Broadway.Processor_default_0,
+      ...>       id: "b1"
       ...>       data: %{
       ...>         detail: 0,
-      ...>         label: "proc_1"
+      ...>         label: "b1"
       ...>       },
       ...>       children: []
       ...>      }
       ...>    ]
       ...> ]
-      iex> layered_graph(layers: layers, title: "Pipeline", hint: "A pipeline")
+      iex> layered_graph(layers: layers, title: "My Graph", hint: "A simple graph")
   """
 
   @type node_data :: binary() | %{label: binary(), detail: term()}
