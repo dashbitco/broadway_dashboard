@@ -30,11 +30,11 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
     * `:show_grid?` - Enable or disable the display of a grid. This
       is useful for development. Default: `false`.
 
-    * `:y_label_offset` - The offset of label position relative to the
-      center of its circle in the Y axis. Default: `5`.
+    * `:y_label_offset` - The "y" offset of label position relative to the
+      center of its circle. Default: `5`.
 
-    * `:y_detail_offset` - The offset of detail position relative to the
-      center of its circle in the Y axis. Default: `18`.
+    * `:y_detail_offset` - The "y" offset of detail position relative to the
+      center of its circle. Default: `18`.
 
     * `:background` - A function that calculates the background for a
       node based on it's data. Default: `fn _node_data -> "gray" end`.
@@ -120,9 +120,9 @@ defmodule BroadwayDashboard.LiveDashboard.LayeredGraphComponent do
      assign(socket,
        arrows: arrows,
        circles: circles,
-       hint: Map.get(assigns, :hint),
-       title: assigns.title,
        radius: updated_opts.r,
+       hint: Map.get(assigns, :hint),
+       title: Map.get(assigns, :title),
        scale_up: updated_opts.scale_up,
        view_box_width: updated_opts.view_box_width,
        view_box_height: updated_opts.view_box_height,
