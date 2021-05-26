@@ -9,7 +9,6 @@ defmodule BroadwayDashboard do
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Metrics
   alias BroadwayDashboard.PipelineGraph
-  alias BroadwayDashboard.LiveDashboard.LayeredGraphComponent
 
   @minimum_broadway_version "0.7.0-dev"
 
@@ -230,14 +229,13 @@ defmodule BroadwayDashboard do
       components: [
         columns(
           components: [
-            {LayeredGraphComponent,
-             [
-               layers: layers,
-               title: "Pipeline",
-               hint: @hint,
-               background: &background/1,
-               format_detail: &format_detail/1
-             ]}
+            layered_graph(
+              layers: layers,
+              title: "Pipeline",
+              hint: @hint,
+              background: &background/1,
+              format_detail: &format_detail/1
+            )
           ]
         )
       ]
