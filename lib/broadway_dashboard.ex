@@ -10,6 +10,8 @@ defmodule BroadwayDashboard do
   alias BroadwayDashboard.Metrics
   alias BroadwayDashboard.PipelineGraph
 
+  # We check the Broadway version installed on remote nodes.
+  # This should match mix.exs.
   @minimum_broadway_version "0.7.0-dev"
 
   # TODO: update link
