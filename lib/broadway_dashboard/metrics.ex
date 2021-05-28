@@ -83,14 +83,13 @@ defmodule BroadwayDashboard.Metrics do
       listeners: MapSet.new(),
       refs: MapSet.new(),
       interval: interval,
+      shutdown_timer: nil,
       mode: opts[:refresh_mode]
     }
 
     # TODO: get counters ref and pass to telemetry
     Counters.start(pipeline)
 
-    # This is no-op if the attach was already made.
-    # It's important to attach only after starting the counters
     Telemetry.attach(self(), pipeline)
 
     {:ok, Map.put(state, :timer, maybe_schedule_refresh(state))}
@@ -118,7 +117,9 @@ defmodule BroadwayDashboard.Metrics do
 
         listeners = MapSet.put(state.listeners, parent)
 
-        {:reply, :ok, %{state | refs: refs, listeners: listeners}}
+        if state.shutdown_timer, do: Process.cancel_timer(state.shutdown_timer)
+
+        {:reply, :ok, %{state | refs: refs, listeners: listeners, shutdown_timer: nil}}
 
       nil ->
         {:reply, {:error, :pipeline_not_found}, state}
@@ -137,9 +138,17 @@ defmodule BroadwayDashboard.Metrics do
     listeners = MapSet.delete(state.listeners, pid)
     refs = MapSet.delete(state.refs, ref)
 
-    # TODO: check if listeners is empty and schedule shutdown after 5 if so
+    shutdown_timer =
+      if MapSet.size(listeners) == 0 do
+        maybe_schedule_shutdown(state)
+      end
 
-    {:noreply, %{state | refs: refs, listeners: listeners}}
+    {:noreply, %{state | refs: refs, listeners: listeners, shutdown_timer: shutdown_timer}}
+  end
+
+  @impl true
+  def handle_info(:shutdown, state) do
+    {:stop, :normal, state}
   end
 
   @impl true
@@ -150,11 +159,18 @@ defmodule BroadwayDashboard.Metrics do
   @impl true
   def terminate(_reason, state) do
     if state.timer, do: Process.cancel_timer(state.timer)
+    if state.shutdown_timer, do: Process.cancel_timer(state.shutdown_timer)
 
     Telemetry.detach(self())
 
     Counters.erase(state.pipeline)
 
     :ok
+  end
+
+  defp maybe_schedule_shutdown(state) do
+    unless state.mode == :manual do
+      Process.send_after(self(), :shutdown, state.interval * 5)
+    end
   end
 end
