@@ -42,6 +42,7 @@ defmodule BroadwayDashboardTest do
 
   test "shows the pipeline" do
     start_supervised!(Demo.Pipeline)
+
     {:ok, live, _} = live(build_conn(), "/dashboard/broadway?nav=Elixir.Demo.Pipeline")
 
     rendered = render(live)
