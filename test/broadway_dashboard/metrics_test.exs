@@ -6,6 +6,7 @@ defmodule BroadwayDashboard.MetricsTest do
 
   test "subscribe a process to a pipeline and ask it to refresh stats" do
     broadway = start_linked_dummy_pipeline()
+    server_name = Metrics.server_name(broadway)
 
     me = self()
 
@@ -17,17 +18,19 @@ defmodule BroadwayDashboard.MetricsTest do
         end
       end)
 
+    {:ok, _} =
+      start_supervised({Metrics, [pipeline: broadway, name: server_name]}, id: server_name)
+
     assert :ok = Metrics.listen(node(), proc, broadway)
 
-    send(Metrics, :refresh)
+    send(server_name, :refresh)
 
     assert_receive :refreshed
-
-    assert {:error, :pipeline_not_found} = Metrics.listen(node(), proc, IDontExist)
   end
 
   test "restart counters when pipeline is restarted" do
     broadway = start_linked_dummy_pipeline()
+    server_name = Metrics.server_name(broadway)
 
     proc =
       spawn_link(fn ->
@@ -37,9 +40,13 @@ defmodule BroadwayDashboard.MetricsTest do
         end
       end)
 
-    assert :ok = Metrics.listen(node(), proc, broadway)
+    {:ok, _} =
+      start_supervised({Metrics, [pipeline: broadway, name: server_name]}, id: server_name)
+
+    :ok = Metrics.listen(node(), proc, broadway)
 
     :ok = Counters.incr(broadway, 1200, 1)
+    {:ok, {1200, 1}} = Counters.count(broadway)
 
     assert :ok = Metrics.ensure_counters_restarted(broadway)
 

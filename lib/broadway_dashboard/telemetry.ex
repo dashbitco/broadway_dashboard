@@ -12,7 +12,7 @@ defmodule BroadwayDashboard.Telemetry do
 
   alias BroadwayDashboard.Counters
 
-  def attach(parent) do
+  def attach(parent, pipeline) do
     events = [
       [:broadway, :topology, :init],
       [:broadway, :processor, :start],
@@ -26,15 +26,17 @@ defmodule BroadwayDashboard.Telemetry do
 
     id = {__MODULE__, parent}
 
-    :telemetry.attach_many(id, events, &handle_event/4, %{})
+    :telemetry.attach_many(id, events, &handle_event/4, pipeline)
   end
 
   def detach(parent) do
     :telemetry.detach({__MODULE__, parent})
   end
 
-  def handle_event([:broadway, :topology, :init], _, metadata, _) do
-    BroadwayDashboard.Metrics.ensure_counters_restarted(metadata.config[:name])
+  def handle_event([:broadway, :topology, :init], _, metadata, pipeline) do
+    if metadata.config[:name] == pipeline do
+      BroadwayDashboard.Metrics.ensure_counters_restarted(pipeline)
+    end
   end
 
   def handle_event([:broadway, stage, :start], measurements, metadata, _)

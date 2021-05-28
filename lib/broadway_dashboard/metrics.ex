@@ -5,7 +5,6 @@ defmodule BroadwayDashboard.Metrics do
   alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Telemetry
   alias BroadwayDashboard.Teleporter
-  alias BroadwayDashboard.Listeners
 
   @default_interval 1_000
 
@@ -14,27 +13,40 @@ defmodule BroadwayDashboard.Metrics do
   # It monitor pages and unsubscribe them in case of exit.
 
   def listen(target_node, parent, pipeline) do
-    msg = {:listen, parent, pipeline}
+    msg = {:listen, parent}
+    name = server_name(pipeline)
 
-    if target_node == node() do
-      GenServer.call(__MODULE__, msg)
+    with {:ok, server_name} <- ensure_server_started_at_node(pipeline, name, target_node) do
+      GenServer.call(server_name, msg)
+    end
+  end
+
+  def server_name(pipeline) do
+    :"BroadwayDashboard.Metrics.#{pipeline}"
+  end
+
+  defp ensure_server_started_at_node(pipeline, name, target_node) when target_node == node() do
+    if Process.whereis(name) do
+      {:ok, name}
     else
-      with :ok <- ensure_server_started_at_node(target_node) do
-        GenServer.call({__MODULE__, target_node}, msg)
+      with {:ok, _} <- start(pipeline: pipeline, name: name) do
+        {:ok, name}
       end
     end
   end
 
-  defp ensure_server_started_at_node(target_node) do
-    case :rpc.call(target_node, Process, :whereis, [__MODULE__]) do
+  defp ensure_server_started_at_node(pipeline, name, target_node) do
+    case :rpc.call(target_node, Process, :whereis, [name]) do
       pid when is_pid(pid) ->
-        :ok
+        {:ok, {name, target_node}}
 
       nil ->
         with :ok <- Teleporter.teleport_metrics_code(target_node),
              pid when is_pid(pid) <-
-               Node.spawn(target_node, __MODULE__, :start, [[from_node: node()]]) do
-          :ok
+               :rpc.call(target_node, __MODULE__, :start, [
+                 [pipeline: pipeline, name: name]
+               ]) do
+          {:ok, {name, target_node}}
         else
           _ ->
             {:error, :not_able_to_start_remotely}
@@ -46,15 +58,17 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   def ensure_counters_restarted(pipeline) do
-    GenServer.call(__MODULE__, {:ensure_counters_restarted, pipeline})
-  end
+    name = server_name(pipeline)
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    GenServer.call(name, :ensure_counters_restarted)
   end
 
   def start(opts) do
-    GenServer.start(__MODULE__, opts, name: __MODULE__)
+    GenServer.start(__MODULE__, opts, name: Keyword.fetch!(opts, :name))
+  end
+
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts, name: Keyword.fetch!(opts, :name))
   end
 
   @impl true
@@ -62,18 +76,22 @@ defmodule BroadwayDashboard.Metrics do
     Process.flag(:trap_exit, true)
 
     interval = opts[:interval] || @default_interval
+    pipeline = opts[:pipeline]
 
     state = %{
-      listeners: %{},
+      pipeline: pipeline,
+      listeners: MapSet.new(),
       refs: MapSet.new(),
       interval: interval,
-      mode: opts[:refresh_mode],
-      from_node: opts[:from_node]
+      mode: opts[:refresh_mode]
     }
 
-    if state.from_node do
-      :net_kernel.monitor_nodes(true, node_type: :all)
-    end
+    # TODO: get counters ref and pass to telemetry
+    Counters.start(pipeline)
+
+    # This is no-op if the attach was already made.
+    # It's important to attach only after starting the counters
+    Telemetry.attach(self(), pipeline)
 
     {:ok, Map.put(state, :timer, maybe_schedule_refresh(state))}
   end
@@ -85,31 +103,22 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   @impl true
-  def handle_call({:ensure_counters_restarted, pipeline}, _, state) do
-    if Map.get(state.listeners, pipeline) do
-      Counters.start!(pipeline)
-    end
+  def handle_call(:ensure_counters_restarted, _, state) do
+    Counters.start!(state.pipeline)
 
     {:reply, :ok, state}
   end
 
   @impl true
-  def handle_call({:listen, parent, pipeline}, _, state) do
-    case Process.whereis(pipeline) do
+  def handle_call({:listen, parent}, _, state) do
+    case Process.whereis(state.pipeline) do
       pid when is_pid(pid) ->
         ref = Process.monitor(parent)
+        refs = MapSet.put(state.refs, ref)
 
-        listeners = Listeners.add(state.listeners, pipeline, parent)
+        listeners = MapSet.put(state.listeners, parent)
 
-        # This is no-op if the pipeline was started already
-        Counters.start(pipeline)
-
-        # This is no-op if the attach was already made.
-        # It's important to attach only after starting the counters
-        # because we need them present.
-        Telemetry.attach(self())
-
-        {:reply, :ok, %{state | refs: MapSet.put(state.refs, ref), listeners: listeners}}
+        {:reply, :ok, %{state | refs: refs, listeners: listeners}}
 
       nil ->
         {:reply, {:error, :pipeline_not_found}, state}
@@ -118,25 +127,19 @@ defmodule BroadwayDashboard.Metrics do
 
   @impl true
   def handle_info(:refresh, state) do
-    Enum.map(state.listeners, fn {pipeline, listeners} ->
-      Enum.map(listeners, fn pid ->
-        send(pid, {:refresh_stats, pipeline})
-      end)
-    end)
+    for pid <- state.listeners, do: send(pid, {:refresh_stats, state.pipeline})
 
     {:noreply, %{state | timer: maybe_schedule_refresh(state)}}
   end
 
   @impl true
-  def handle_info({:DOWN, ref, _, pid, _}, %{refs: refs} = state) do
-    listeners = Listeners.remove(state.listeners, pid)
+  def handle_info({:DOWN, ref, _, pid, _}, state) do
+    listeners = MapSet.delete(state.listeners, pid)
+    refs = MapSet.delete(state.refs, ref)
 
-    {:noreply, %{state | refs: MapSet.delete(refs, ref), listeners: listeners}}
-  end
+    # TODO: check if listeners is empty and schedule shutdown after 5 if so
 
-  @impl true
-  def handle_info({:nodedown, from_node, _}, %{from_node: from_node} = state) do
-    {:stop, :normal, state}
+    {:noreply, %{state | refs: refs, listeners: listeners}}
   end
 
   @impl true
@@ -150,9 +153,7 @@ defmodule BroadwayDashboard.Metrics do
 
     Telemetry.detach(self())
 
-    state.listeners
-    |> Map.keys()
-    |> Enum.map(fn pipeline -> Counters.erase(pipeline) end)
+    Counters.erase(state.pipeline)
 
     :ok
   end
