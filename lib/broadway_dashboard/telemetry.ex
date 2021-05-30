@@ -90,11 +90,7 @@ defmodule BroadwayDashboard.Telemetry do
 
     if name == pipeline do
       :ok =
-        Counters.incr(
-          name,
-          0,
-          1
-        )
+        Counters.incr(name, 0, 1)
     end
 
     :ok
