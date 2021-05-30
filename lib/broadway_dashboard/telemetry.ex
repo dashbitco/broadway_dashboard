@@ -89,8 +89,7 @@ defmodule BroadwayDashboard.Telemetry do
     name = pipeline_name(metadata.name)
 
     if name == pipeline do
-      :ok =
-        Counters.incr(name, 0, 1)
+      :ok = Counters.incr(name, 0, 1)
     end
 
     :ok
