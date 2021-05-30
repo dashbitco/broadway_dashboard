@@ -28,6 +28,23 @@ defmodule BroadwayDashboard.MetricsTest do
     assert_receive :refreshed
   end
 
+  test "returns error if pipeline is not running" do
+    broadway = new_unique_name()
+    server_name = Metrics.server_name(broadway)
+
+    proc =
+      spawn_link(fn ->
+        receive do
+          _ -> :ok
+        end
+      end)
+
+    {:ok, _} =
+      start_supervised({Metrics, [pipeline: broadway, name: server_name]}, id: server_name)
+
+    assert {:error, :pipeline_not_found} = Metrics.listen(node(), proc, broadway)
+  end
+
   test "restart counters when pipeline is restarted" do
     broadway = start_linked_dummy_pipeline()
     server_name = Metrics.server_name(broadway)

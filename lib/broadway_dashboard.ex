@@ -59,7 +59,6 @@ defmodule BroadwayDashboard do
         node = socket.assigns.page.node
 
         with :ok <- check_broadway_version(node),
-             :ok <- check_pipeline_running(node, pipeline),
              :ok <- Metrics.listen(node, self(), pipeline),
              {:ok, {successful, failed}} <- count(node, pipeline) do
           stats = %{
@@ -260,16 +259,6 @@ defmodule BroadwayDashboard do
 
   defp format_detail(node_data) do
     "#{node_data.detail}%"
-  end
-
-  defp check_pipeline_running(target_node, pipeline) do
-    case :rpc.call(target_node, Process, :whereis, [pipeline]) do
-      pid when is_pid(pid) ->
-        :ok
-
-      _ ->
-        {:error, :pipeline_not_found}
-    end
   end
 
   defp check_broadway_version(node) do

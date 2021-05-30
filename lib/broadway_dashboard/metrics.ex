@@ -13,16 +13,33 @@ defmodule BroadwayDashboard.Metrics do
   # It monitor pages and unsubscribe them in case of exit.
 
   def listen(target_node, parent, pipeline) do
-    msg = {:listen, parent}
     name = server_name(pipeline)
 
-    with {:ok, server_name} <- ensure_server_started_at_node(pipeline, name, target_node) do
-      GenServer.call(server_name, msg)
+    with :ok <- check_pipeline_running_at_node(pipeline, target_node),
+         {:ok, server_name} <- ensure_server_started_at_node(pipeline, name, target_node) do
+      GenServer.call(server_name, {:listen, parent})
     end
   end
 
   def server_name(pipeline) do
     :"BroadwayDashboard.Metrics.#{pipeline}"
+  end
+
+  defp check_pipeline_running_at_node(pipeline, target_node) do
+    result =
+      if target_node == node() do
+        Process.whereis(pipeline)
+      else
+        :rpc.call(target_node, Process, :whereis, [pipeline])
+      end
+
+    case result do
+      pid when is_pid(pid) ->
+        :ok
+
+      _ ->
+        {:error, :pipeline_not_found}
+    end
   end
 
   defp ensure_server_started_at_node(pipeline, name, target_node) when target_node == node() do
