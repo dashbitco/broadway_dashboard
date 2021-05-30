@@ -39,93 +39,85 @@ defmodule BroadwayDashboard.Telemetry do
     end
   end
 
-  def handle_event([:broadway, stage, :start], measurements, metadata, pipeline)
+  def handle_event(
+        [:broadway, stage, :start],
+        measurements,
+        %{topology_name: pipeline} = metadata,
+        pipeline
+      )
       when stage in @measurable_start_stages do
     measure_start(measurements, metadata, pipeline)
   end
 
-  def handle_event([:broadway, :batcher, :stop], measurements, metadata, pipeline) do
+  def handle_event(
+        [:broadway, :batcher, :stop],
+        measurements,
+        %{topology_name: pipeline} = metadata,
+        pipeline
+      ) do
     measure_stop(measurements, metadata, pipeline)
   end
 
-  def handle_event([:broadway, :processor, :stop], measurements, metadata, pipeline) do
-    name = pipeline_name(metadata.name)
+  def handle_event(
+        [:broadway, :processor, :stop],
+        measurements,
+        %{topology_name: pipeline} = metadata,
+        pipeline
+      ) do
+    # Here we measure only because it can occur a failure or
+    # we don't have batchers and we "Ack" in the processor.
+    :ok =
+      Counters.incr(
+        pipeline,
+        length(metadata.successful_messages_to_ack),
+        length(metadata.failed_messages)
+      )
 
-    if name == pipeline do
-      # Here we measure only because it can occur a failure or
-      # we don't have batchers and we "Ack" in the processor.
-      :ok =
-        Counters.incr(
-          name,
-          length(metadata.successful_messages_to_ack),
-          length(metadata.failed_messages)
-        )
-
-      measure_stop(measurements, metadata, pipeline)
-    end
+    measure_stop(measurements, metadata, pipeline)
   end
 
-  def handle_event([:broadway, :consumer, :stop], measurements, metadata, pipeline) do
-    name = pipeline_name(metadata.name)
+  def handle_event(
+        [:broadway, :consumer, :stop],
+        measurements,
+        %{topology_name: pipeline} = metadata,
+        pipeline
+      ) do
+    :ok =
+      Counters.incr(
+        pipeline,
+        length(metadata.successful_messages),
+        length(metadata.failed_messages)
+      )
 
-    if name == pipeline do
-      :ok =
-        Counters.incr(
-          name,
-          length(metadata.successful_messages),
-          length(metadata.failed_messages)
-        )
-
-      measure_stop(measurements, metadata, pipeline)
-    end
+    measure_stop(measurements, metadata, pipeline)
   end
 
   def handle_event(
         [:broadway, :processor, :message, :exception],
         _measurements,
-        metadata,
+        %{topology_name: pipeline} = _metadata,
         pipeline
       ) do
-    name = pipeline_name(metadata.name)
-
-    if name == pipeline do
-      :ok = Counters.incr(name, 0, 1)
-    end
-
-    :ok
+    :ok = Counters.incr(pipeline, 0, 1)
   end
 
-  defp measure_start(measurements, metadata, pipeline) do
-    name = pipeline_name(metadata.name)
+  # Ignore events from other pipelines
+  def handle_event(_, _, _, _), do: :ok
 
-    if name == pipeline do
-      :ok = Counters.put_start(name, metadata.name, measurements.time)
-    end
+  defp measure_start(measurements, metadata, pipeline) do
+    :ok = Counters.put_start(pipeline, metadata.name, measurements.time)
   end
 
   defp measure_stop(measurements, metadata, pipeline) do
-    current_pipeline = pipeline_name(metadata.name)
+    name = metadata.name
 
-    if current_pipeline == pipeline do
-      name = metadata.name
+    {:ok, start_time} = Counters.fetch_start(pipeline, name)
+    {:ok, last_end_time} = Counters.fetch_end(pipeline, name)
 
-      {:ok, start_time} = Counters.fetch_start(pipeline, name)
-      {:ok, last_end_time} = Counters.fetch_end(pipeline, name)
+    idle_time = start_time - last_end_time
+    processing_factor = round(measurements.duration / (idle_time + measurements.duration) * 100)
 
-      idle_time = start_time - last_end_time
-      processing_factor = round(measurements.duration / (idle_time + measurements.duration) * 100)
-
-      :ok = Counters.put_end(pipeline, name, measurements.time)
-      :ok = Counters.put_processing_factor(pipeline, name, processing_factor)
-    end
-  end
-
-  # TODO: add the pipeline name to telemetry events
-  defp pipeline_name(name) do
-    name
-    |> Atom.to_string()
-    |> String.split(".Broadway.")
-    |> List.first()
-    |> String.to_existing_atom()
+    :ok = Counters.put_end(pipeline, name, measurements.time)
+    :ok = Counters.put_processing_factor(pipeline, name, processing_factor)
   end
 end
