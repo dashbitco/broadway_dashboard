@@ -97,8 +97,7 @@ defmodule BroadwayDashboard.Metrics do
 
     state = %{
       pipeline: pipeline,
-      listeners: MapSet.new(),
-      refs: MapSet.new(),
+      listeners: Map.new(),
       interval: interval,
       shutdown_timer: nil,
       mode: opts[:refresh_mode]
@@ -127,40 +126,32 @@ defmodule BroadwayDashboard.Metrics do
 
   @impl true
   def handle_call({:listen, parent}, _, state) do
-    case Process.whereis(state.pipeline) do
-      pid when is_pid(pid) ->
-        ref = Process.monitor(parent)
-        refs = MapSet.put(state.refs, ref)
+    ref = Process.monitor(parent)
 
-        listeners = MapSet.put(state.listeners, parent)
+    listeners = Map.put(state.listeners, ref, parent)
 
-        if state.shutdown_timer, do: Process.cancel_timer(state.shutdown_timer)
+    if state.shutdown_timer, do: Process.cancel_timer(state.shutdown_timer)
 
-        {:reply, :ok, %{state | refs: refs, listeners: listeners, shutdown_timer: nil}}
-
-      nil ->
-        {:reply, {:error, :pipeline_not_found}, state}
-    end
+    {:reply, :ok, %{state | listeners: listeners, shutdown_timer: nil}}
   end
 
   @impl true
   def handle_info(:refresh, state) do
-    for pid <- state.listeners, do: send(pid, {:refresh_stats, state.pipeline})
+    for pid <- Map.values(state.listeners), do: send(pid, {:refresh_stats, state.pipeline})
 
     {:noreply, %{state | timer: maybe_schedule_refresh(state)}}
   end
 
   @impl true
-  def handle_info({:DOWN, ref, _, pid, _}, state) do
-    listeners = MapSet.delete(state.listeners, pid)
-    refs = MapSet.delete(state.refs, ref)
+  def handle_info({:DOWN, ref, _, _pid, _}, state) do
+    listeners = Map.delete(state.listeners, ref)
 
     shutdown_timer =
-      if MapSet.size(listeners) == 0 do
+      if listeners == %{} do
         maybe_schedule_shutdown(state)
       end
 
-    {:noreply, %{state | refs: refs, listeners: listeners, shutdown_timer: shutdown_timer}}
+    {:noreply, %{state | listeners: listeners, shutdown_timer: shutdown_timer}}
   end
 
   @impl true
@@ -175,9 +166,6 @@ defmodule BroadwayDashboard.Metrics do
 
   @impl true
   def terminate(_reason, state) do
-    if state.timer, do: Process.cancel_timer(state.timer)
-    if state.shutdown_timer, do: Process.cancel_timer(state.shutdown_timer)
-
     Telemetry.detach(self())
 
     Counters.erase(state.pipeline)
@@ -186,7 +174,7 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   defp maybe_schedule_shutdown(state) do
-    unless state.mode == :manual do
+    unless state.mode == :manual or state.shutdown_timer do
       Process.send_after(self(), :shutdown, state.interval * 5)
     end
   end
