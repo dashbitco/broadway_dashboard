@@ -12,7 +12,7 @@ defmodule BroadwayDashboard.Telemetry do
 
   alias BroadwayDashboard.Counters
 
-  def attach(parent) do
+  def attach(parent, pipeline) do
     events = [
       [:broadway, :topology, :init],
       [:broadway, :processor, :start],
@@ -26,67 +26,89 @@ defmodule BroadwayDashboard.Telemetry do
 
     id = {__MODULE__, parent}
 
-    :telemetry.attach_many(id, events, &handle_event/4, %{})
+    :telemetry.attach_many(id, events, &handle_event/4, pipeline)
   end
 
   def detach(parent) do
     :telemetry.detach({__MODULE__, parent})
   end
 
-  def handle_event([:broadway, :topology, :init], _, metadata, _) do
-    BroadwayDashboard.Metrics.ensure_counters_restarted(metadata.config[:name])
+  def handle_event([:broadway, :topology, :init], _, metadata, pipeline) do
+    if metadata.config[:name] == pipeline do
+      BroadwayDashboard.Metrics.ensure_counters_restarted(pipeline)
+    end
   end
 
-  def handle_event([:broadway, stage, :start], measurements, metadata, _)
+  def handle_event(
+        [:broadway, stage, :start],
+        measurements,
+        %{topology_name: pipeline} = metadata,
+        pipeline
+      )
       when stage in @measurable_start_stages do
-    measure_start(measurements, metadata)
+    measure_start(measurements, metadata, pipeline)
   end
 
-  def handle_event([:broadway, :batcher, :stop], measurements, metadata, _) do
-    measure_stop(measurements, metadata)
+  def handle_event(
+        [:broadway, :batcher, :stop],
+        measurements,
+        %{topology_name: pipeline} = metadata,
+        pipeline
+      ) do
+    measure_stop(measurements, metadata, pipeline)
   end
 
-  def handle_event([:broadway, :processor, :stop], measurements, metadata, _) do
+  def handle_event(
+        [:broadway, :processor, :stop],
+        measurements,
+        %{topology_name: pipeline} = metadata,
+        pipeline
+      ) do
     # Here we measure only because it can occur a failure or
     # we don't have batchers and we "Ack" in the processor.
     :ok =
       Counters.incr(
-        pipeline_name(metadata.name),
+        pipeline,
         length(metadata.successful_messages_to_ack),
         length(metadata.failed_messages)
       )
 
-    measure_stop(measurements, metadata)
+    measure_stop(measurements, metadata, pipeline)
   end
 
-  def handle_event([:broadway, :consumer, :stop], measurements, metadata, _) do
+  def handle_event(
+        [:broadway, :consumer, :stop],
+        measurements,
+        %{topology_name: pipeline} = metadata,
+        pipeline
+      ) do
     :ok =
       Counters.incr(
-        pipeline_name(metadata.name),
+        pipeline,
         length(metadata.successful_messages),
         length(metadata.failed_messages)
       )
 
-    measure_stop(measurements, metadata)
+    measure_stop(measurements, metadata, pipeline)
   end
 
-  def handle_event([:broadway, :processor, :message, :exception], _measurements, metadata, _) do
-    :ok =
-      Counters.incr(
-        pipeline_name(metadata.name),
-        0,
-        1
-      )
-
-    :ok
+  def handle_event(
+        [:broadway, :processor, :message, :exception],
+        _measurements,
+        %{topology_name: pipeline} = _metadata,
+        pipeline
+      ) do
+    :ok = Counters.incr(pipeline, 0, 1)
   end
 
-  defp measure_start(measurements, metadata) do
-    :ok = Counters.put_start(pipeline_name(metadata.name), metadata.name, measurements.time)
+  # Ignore events from other pipelines
+  def handle_event(_, _, _, _), do: :ok
+
+  defp measure_start(measurements, metadata, pipeline) do
+    :ok = Counters.put_start(pipeline, metadata.name, measurements.time)
   end
 
-  defp measure_stop(measurements, metadata) do
-    pipeline = pipeline_name(metadata.name)
+  defp measure_stop(measurements, metadata, pipeline) do
     name = metadata.name
 
     {:ok, start_time} = Counters.fetch_start(pipeline, name)
@@ -97,13 +119,5 @@ defmodule BroadwayDashboard.Telemetry do
 
     :ok = Counters.put_end(pipeline, name, measurements.time)
     :ok = Counters.put_processing_factor(pipeline, name, processing_factor)
-  end
-
-  defp pipeline_name(name) do
-    name
-    |> Atom.to_string()
-    |> String.split(".Broadway.")
-    |> List.first()
-    |> String.to_existing_atom()
   end
 end

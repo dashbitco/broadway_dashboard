@@ -48,7 +48,7 @@ defmodule Demo.Pipeline do
   def handle_batch(:s3, messages, _, _), do: messages
 
   defp pick_batcher_key do
-    Enum.shuffle([:default, :s3]) |> List.first()
+    Enum.random([:default, :s3])
   end
 end
 
@@ -110,12 +110,9 @@ defmodule Phoenix.LiveDashboardTest.Endpoint do
   plug(Phoenix.LiveDashboardTest.Router)
 end
 
-Application.ensure_all_started(:os_mon)
-
 {:ok, _} =
   Supervisor.start_link(
     [
-      Demo.Pipeline,
       {Phoenix.PubSub, name: Phoenix.LiveDashboardTest.PubSub, adapter: Phoenix.PubSub.PG2},
       Phoenix.LiveDashboardTest.Endpoint
     ],
