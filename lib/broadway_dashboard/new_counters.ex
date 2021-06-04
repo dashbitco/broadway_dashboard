@@ -1,4 +1,6 @@
 defmodule BroadwayDashboard.NewCounters do
+  @moduledoc false
+
   # This represents the counters of a pipeline.
   #
   # It has a counter with two entries (for success and errors),
@@ -36,6 +38,12 @@ defmodule BroadwayDashboard.NewCounters do
 
   defstruct stages: 0, counters: nil, atomics: nil, batchers_positions: []
 
+  defguardp valid_processor_input?(index, value)
+            when is_integer(index) and index >= 0 and is_integer(value)
+
+  @doc """
+  Builds a counters struct based on a Broadway `topology`.
+  """
   def build(topology) do
     total =
       for {layer, details} when layer != :producers <- topology, group <- details, reduce: 0 do
@@ -63,21 +71,18 @@ defmodule BroadwayDashboard.NewCounters do
     :ok = :counters.add(counters.counters, 2, failures)
   end
 
-  # TODO: add a guard here:  when is_integer(index) and is_integer(start) and index >= 0
-  # Index is considered to be zero at start.
-  def put_processor_start(%__MODULE__{} = counters, index, start) do
+  def put_processor_start(%__MODULE__{} = counters, index, start)
+      when valid_processor_input?(index, start) do
     :atomics.put(counters.atomics, index + 1, start)
   end
 
-  # TODO: add a guard here:  when is_integer(index) and is_integer(start) and index >= 0
-  # Index is considered to be zero at start.
-  def put_processor_end(%__MODULE__{} = counters, index, end_time) do
+  def put_processor_end(%__MODULE__{} = counters, index, end_time)
+      when valid_processor_input?(index, end_time) do
     :atomics.put(counters.atomics, counters.stages + index + 1, end_time)
   end
 
-  # TODO: add a guard here:  when is_integer(index) and is_integer(start) and index >= 0
-  # Index is considered to be zero at start.
-  def put_processor_processing_factor(%__MODULE__{} = counters, index, factor) do
+  def put_processor_processing_factor(%__MODULE__{} = counters, index, factor)
+      when valid_processor_input?(index, factor) do
     :atomics.put(counters.atomics, counters.stages * 2 + index + 1, factor)
   end
 end
