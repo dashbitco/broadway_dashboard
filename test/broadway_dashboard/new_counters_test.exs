@@ -188,5 +188,131 @@ defmodule BroadwayDashboard.NewCountersTest do
     assert :ok = NewCounters.put_batcher_start(counters, :s3, start)
     # This is 7 because it's 1 from default, + 5 batch processors from default, + 1 s3 batcher
     assert :atomics.get(counters.atomics, proc_concurrency + 7) == start
+
+    assert {:error, :batcher_position_not_found} =
+             NewCounters.put_batcher_start(counters, :sqs, start)
+  end
+
+  test "put_batcher_end/3 sets the end time for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_name: :default, concurrency: 5},
+        %{name: :s3, batcher_name: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = NewCounters.build(topology)
+    end_time = System.monotonic_time()
+
+    assert :ok = NewCounters.put_batcher_end(counters, :default, end_time)
+    assert :atomics.get(counters.atomics, counters.stages + proc_concurrency + 1) == end_time
+
+    assert :ok = NewCounters.put_batcher_end(counters, :s3, end_time)
+    # This is 7 because it's 1 from default, + 5 batch processors from default, + 1 s3 batcher
+    assert :atomics.get(counters.atomics, counters.stages + proc_concurrency + 7) == end_time
+
+    assert {:error, :batcher_position_not_found} =
+             NewCounters.put_batcher_end(counters, :sqs, end_time)
+  end
+
+  test "put_batcher_processing_factor/3 sets the processing factor for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_name: :default, concurrency: 5},
+        %{name: :s3, batcher_name: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = NewCounters.build(topology)
+    factor = System.monotonic_time()
+
+    assert :ok = NewCounters.put_batcher_processing_factor(counters, :default, factor)
+    assert :atomics.get(counters.atomics, counters.stages * 2 + proc_concurrency + 1) == factor
+
+    assert :ok = NewCounters.put_batcher_processing_factor(counters, :s3, factor)
+    # This is 7 because it's 1 from default, + 5 batch processors from default, + 1 s3 batcher
+    assert :atomics.get(counters.atomics, counters.stages * 2 + proc_concurrency + 7) == factor
+
+    assert {:error, :batcher_position_not_found} =
+             NewCounters.put_batcher_processing_factor(counters, :sqs, factor)
+  end
+
+  test "get_batcher_start/2 gets the start time for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_name: :default, concurrency: 5},
+        %{name: :s3, batcher_name: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = NewCounters.build(topology)
+    start = System.monotonic_time()
+
+    :ok = NewCounters.put_batcher_start(counters, :default, start)
+    assert NewCounters.get_batcher_start(counters, :default) == start
+
+    assert {:error, :batcher_position_not_found} = NewCounters.get_batcher_start(counters, :sqs)
+  end
+
+  test "get_batcher_end/2 gets the end time for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_name: :default, concurrency: 5},
+        %{name: :s3, batcher_name: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = NewCounters.build(topology)
+    end_time = System.monotonic_time()
+
+    NewCounters.put_batcher_end(counters, :default, end_time)
+
+    assert NewCounters.get_batcher_end(counters, :default) == end_time
+
+    NewCounters.put_batcher_end(counters, :s3, end_time)
+    assert NewCounters.get_batcher_end(counters, :s3) == end_time
+
+    assert {:error, :batcher_position_not_found} = NewCounters.get_batcher_end(counters, :sqs)
+  end
+
+  test "get_batcher_processing_factor/3 gets the processing factor for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_name: :default, concurrency: 5},
+        %{name: :s3, batcher_name: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = NewCounters.build(topology)
+    factor = System.monotonic_time()
+
+    NewCounters.put_batcher_processing_factor(counters, :default, factor)
+    assert NewCounters.get_batcher_processing_factor(counters, :default) == factor
+
+    NewCounters.put_batcher_processing_factor(counters, :s3, factor)
+    assert NewCounters.get_batcher_processing_factor(counters, :s3) == factor
+
+    assert {:error, :batcher_position_not_found} =
+             NewCounters.get_batcher_processing_factor(counters, :sqs)
   end
 end

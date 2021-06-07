@@ -107,12 +107,50 @@ defmodule BroadwayDashboard.NewCounters do
 
   def put_batcher_start(%__MODULE__{} = counters, batcher_key, start)
       when valid_batcher_input?(batcher_key, start) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.put(counters.atomics, position, start)
+    end
+  end
+
+  def put_batcher_end(%__MODULE__{} = counters, batcher_key, end_time)
+      when valid_batcher_input?(batcher_key, end_time) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.put(counters.atomics, counters.stages + position, end_time)
+    end
+  end
+
+  def put_batcher_processing_factor(%__MODULE__{} = counters, batcher_key, factor)
+      when valid_batcher_input?(batcher_key, factor) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.put(counters.atomics, counters.stages * 2 + position, factor)
+    end
+  end
+
+  def get_batcher_start(%__MODULE__{} = counters, batcher_key) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.get(counters.atomics, position)
+    end
+  end
+
+  def get_batcher_end(%__MODULE__{} = counters, batcher_key) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.get(counters.atomics, counters.stages + position)
+    end
+  end
+
+  def get_batcher_processing_factor(%__MODULE__{} = counters, batcher_key) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.get(counters.atomics, counters.stages * 2 + position)
+    end
+  end
+
+  defp batcher_position(counters, batcher_key) do
     position = counters.batchers_positions[batcher_key]
 
     if position do
-      :atomics.put(counters.atomics, position, start)
+      {:ok, position}
     else
-      {:error, "bather does not exist"}
+      {:error, :batcher_position_not_found}
     end
   end
 end
