@@ -144,6 +144,45 @@ defmodule BroadwayDashboard.NewCounters do
     end
   end
 
+  ## Batch processors
+  # TODO: test me
+
+  def put_batch_processor_start(%__MODULE__{} = counters, batcher_key, index, start) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.put(counters.atomics, position + index + 1, start)
+    end
+  end
+
+  def put_batch_processor_end(%__MODULE__{} = counters, batcher_key, index, end_time) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.put(counters.atomics, counters.stages + position + index + 1, end_time)
+    end
+  end
+
+  def put_batch_processor_processing_factor(%__MODULE__{} = counters, batcher_key, index, factor) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.put(counters.atomics, counters.stages * 2 + position + index + 1, factor)
+    end
+  end
+
+  def get_batch_processor_start(%__MODULE__{} = counters, batcher_key, index) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.get(counters.atomics, position + index + 1)
+    end
+  end
+
+  def get_batch_processor_end(%__MODULE__{} = counters, batcher_key, index) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.get(counters.atomics, counters.stages + position + index + 1)
+    end
+  end
+
+  def get_batch_processor_processing_factor(%__MODULE__{} = counters, batcher_key, index) do
+    with {:ok, position} <- batcher_position(counters, batcher_key) do
+      :atomics.get(counters.atomics, counters.stages * 2 + position + index + 1)
+    end
+  end
+
   defp batcher_position(counters, batcher_key) do
     position = counters.batchers_positions[batcher_key]
 
