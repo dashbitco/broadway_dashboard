@@ -73,17 +73,17 @@ defmodule BroadwayDashboard.NewCountersTest do
     ]
 
     counters = NewCounters.build(topology)
-    start_at = counters.stages
+    initial_pos = counters.stages
     end_time = System.monotonic_time()
 
     assert :ok = NewCounters.put_processor_end(counters, 0, end_time)
-    assert :atomics.get(counters.atomics, start_at + 1) == end_time
+    assert :atomics.get(counters.atomics, initial_pos + 1) == end_time
 
     assert :ok = NewCounters.put_processor_end(counters, 19, end_time)
-    assert :atomics.get(counters.atomics, start_at + 20) == end_time
+    assert :atomics.get(counters.atomics, initial_pos + 20) == end_time
 
     assert :ok = NewCounters.put_processor_end(counters, 39, end_time)
-    assert :atomics.get(counters.atomics, start_at + 40) == end_time
+    assert :atomics.get(counters.atomics, initial_pos + 40) == end_time
   end
 
   test "put_processor_processing_factor/3 sets the processing factor of a processor" do
@@ -94,16 +94,99 @@ defmodule BroadwayDashboard.NewCountersTest do
     ]
 
     counters = NewCounters.build(topology)
-    start_at = counters.stages * 2
+    initial_pos = counters.stages * 2
     factor = 80
 
     assert :ok = NewCounters.put_processor_processing_factor(counters, 0, factor)
-    assert :atomics.get(counters.atomics, start_at + 1) == factor
+    assert :atomics.get(counters.atomics, initial_pos + 1) == factor
 
     assert :ok = NewCounters.put_processor_processing_factor(counters, 19, factor)
-    assert :atomics.get(counters.atomics, start_at + 20) == factor
+    assert :atomics.get(counters.atomics, initial_pos + 20) == factor
 
     assert :ok = NewCounters.put_processor_processing_factor(counters, 39, factor)
-    assert :atomics.get(counters.atomics, start_at + 40) == factor
+    assert :atomics.get(counters.atomics, initial_pos + 40) == factor
+  end
+
+  test "get_processor_start/2 returns the start time of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
+
+    counters = NewCounters.build(topology)
+    start = System.monotonic_time()
+
+    NewCounters.put_processor_start(counters, 0, start)
+    assert NewCounters.get_processor_start(counters, 0) == start
+
+    NewCounters.put_processor_start(counters, 19, start)
+    assert NewCounters.get_processor_start(counters, 19) == start
+
+    NewCounters.put_processor_start(counters, 39, start)
+    assert NewCounters.get_processor_start(counters, 39) == start
+  end
+
+  test "get_processor_end/2 returns the end time of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
+
+    counters = NewCounters.build(topology)
+    end_time = System.monotonic_time()
+
+    NewCounters.put_processor_end(counters, 0, end_time)
+    assert NewCounters.get_processor_end(counters, 0) == end_time
+
+    NewCounters.put_processor_end(counters, 19, end_time)
+    assert NewCounters.get_processor_end(counters, 19) == end_time
+
+    NewCounters.put_processor_end(counters, 39, end_time)
+    assert NewCounters.get_processor_end(counters, 39) == end_time
+  end
+
+  test "get_processor_processing_factor/2 returns the end time of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
+
+    counters = NewCounters.build(topology)
+    end_time = System.monotonic_time()
+
+    NewCounters.put_processor_processing_factor(counters, 0, end_time)
+    assert NewCounters.get_processor_processing_factor(counters, 0) == end_time
+
+    NewCounters.put_processor_processing_factor(counters, 19, end_time)
+    assert NewCounters.get_processor_processing_factor(counters, 19) == end_time
+
+    NewCounters.put_processor_processing_factor(counters, 39, end_time)
+    assert NewCounters.get_processor_processing_factor(counters, 39) == end_time
+  end
+
+  test "put_batcher_start/3 sets the start time for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_name: :default, concurrency: 5},
+        %{name: :s3, batcher_name: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = NewCounters.build(topology)
+    start = System.monotonic_time()
+
+    assert :ok = NewCounters.put_batcher_start(counters, :default, start)
+    assert :atomics.get(counters.atomics, proc_concurrency + 1) == start
+
+    assert :ok = NewCounters.put_batcher_start(counters, :s3, start)
+    # This is 7 because it's 1 from default, + 5 batch processors from default, + 1 s3 batcher
+    assert :atomics.get(counters.atomics, proc_concurrency + 7) == start
   end
 end

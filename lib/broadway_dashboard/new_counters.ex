@@ -36,10 +36,13 @@ defmodule BroadwayDashboard.NewCounters do
   # value. For the "end" value we simply add the "total" to the found
   # position of start. And for the "work factor" we add the "total" again.
 
-  defstruct stages: 0, counters: nil, atomics: nil, batchers_positions: []
+  defstruct stages: 0, counters: nil, atomics: nil, batchers_positions: %{}
 
   defguardp valid_processor_input?(index, value)
             when is_integer(index) and index >= 0 and is_integer(value)
+
+  defguardp valid_batcher_input?(batcher_key, value)
+            when is_atom(batcher_key) and is_integer(value)
 
   @doc """
   Builds a counters struct based on a Broadway `topology`.
@@ -71,6 +74,8 @@ defmodule BroadwayDashboard.NewCounters do
     :ok = :counters.add(counters.counters, 2, failures)
   end
 
+  ## Processors
+
   def put_processor_start(%__MODULE__{} = counters, index, start)
       when valid_processor_input?(index, start) do
     :atomics.put(counters.atomics, index + 1, start)
@@ -84,5 +89,30 @@ defmodule BroadwayDashboard.NewCounters do
   def put_processor_processing_factor(%__MODULE__{} = counters, index, factor)
       when valid_processor_input?(index, factor) do
     :atomics.put(counters.atomics, counters.stages * 2 + index + 1, factor)
+  end
+
+  def get_processor_start(%__MODULE__{} = counters, index) when index >= 0 do
+    :atomics.get(counters.atomics, index + 1)
+  end
+
+  def get_processor_end(%__MODULE__{} = counters, index) when index >= 0 do
+    :atomics.get(counters.atomics, counters.stages + index + 1)
+  end
+
+  def get_processor_processing_factor(%__MODULE__{} = counters, index) when index >= 0 do
+    :atomics.get(counters.atomics, counters.stages * 2 + index + 1)
+  end
+
+  ## Batchers
+
+  def put_batcher_start(%__MODULE__{} = counters, batcher_key, start)
+      when valid_batcher_input?(batcher_key, start) do
+    position = counters.batchers_positions[batcher_key]
+
+    if position do
+      :atomics.put(counters.atomics, position, start)
+    else
+      {:error, "bather does not exist"}
+    end
   end
 end
