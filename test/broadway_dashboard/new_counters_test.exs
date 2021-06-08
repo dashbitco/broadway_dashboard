@@ -22,8 +22,8 @@ defmodule BroadwayDashboard.NewCountersTest do
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: 40}],
       batchers: [
-        %{name: :default, batcher_name: :default, concurrency: 5},
-        %{name: :s3, batcher_name: :s3, concurrency: 3}
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
       ]
     ]
 
@@ -174,8 +174,8 @@ defmodule BroadwayDashboard.NewCountersTest do
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: proc_concurrency}],
       batchers: [
-        %{name: :default, batcher_name: :default, concurrency: 5},
-        %{name: :s3, batcher_name: :s3, concurrency: 3}
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
       ]
     ]
 
@@ -200,8 +200,8 @@ defmodule BroadwayDashboard.NewCountersTest do
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: proc_concurrency}],
       batchers: [
-        %{name: :default, batcher_name: :default, concurrency: 5},
-        %{name: :s3, batcher_name: :s3, concurrency: 3}
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
       ]
     ]
 
@@ -226,8 +226,8 @@ defmodule BroadwayDashboard.NewCountersTest do
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: proc_concurrency}],
       batchers: [
-        %{name: :default, batcher_name: :default, concurrency: 5},
-        %{name: :s3, batcher_name: :s3, concurrency: 3}
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
       ]
     ]
 
@@ -252,8 +252,8 @@ defmodule BroadwayDashboard.NewCountersTest do
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: proc_concurrency}],
       batchers: [
-        %{name: :default, batcher_name: :default, concurrency: 5},
-        %{name: :s3, batcher_name: :s3, concurrency: 3}
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
       ]
     ]
 
@@ -273,8 +273,8 @@ defmodule BroadwayDashboard.NewCountersTest do
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: proc_concurrency}],
       batchers: [
-        %{name: :default, batcher_name: :default, concurrency: 5},
-        %{name: :s3, batcher_name: :s3, concurrency: 3}
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
       ]
     ]
 
@@ -298,8 +298,8 @@ defmodule BroadwayDashboard.NewCountersTest do
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: proc_concurrency}],
       batchers: [
-        %{name: :default, batcher_name: :default, concurrency: 5},
-        %{name: :s3, batcher_name: :s3, concurrency: 3}
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
       ]
     ]
 

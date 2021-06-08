@@ -51,14 +51,14 @@ defmodule BroadwayDashboard.NewCounters do
     total =
       for {layer, details} when layer != :producers <- topology, group <- details, reduce: 0 do
         acc ->
-          acc + group.concurrency + if Map.get(group, :batcher_name), do: 1, else: 0
+          acc + group.concurrency + if layer == :batchers, do: 1, else: 0
       end
 
     [%{concurrency: start_index}] = topology[:processors]
 
     {_, positions} =
       Enum.reduce(topology[:batchers], {start_index + 1, %{}}, fn batcher, {index, positions} ->
-        {index + batcher.concurrency + 1, Map.put(positions, batcher.batcher_name, index)}
+        {index + batcher.concurrency + 1, Map.put(positions, batcher.batcher_key, index)}
       end)
 
     %__MODULE__{
