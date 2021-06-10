@@ -6,7 +6,6 @@ defmodule BroadwayDashboard do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
-  alias BroadwayDashboard.Counters
   alias BroadwayDashboard.Metrics
   alias BroadwayDashboard.PipelineGraph
 
@@ -59,16 +58,17 @@ defmodule BroadwayDashboard do
         node = socket.assigns.page.node
 
         with :ok <- check_broadway_version(node),
-             :ok <- Metrics.listen(node, self(), pipeline),
-             {:ok, {successful, failed}} <- count(node, pipeline) do
+             {:ok, initial_payload} <- Metrics.listen(node, self(), pipeline) do
           stats = %{
-            successful: successful,
-            failed: failed,
+            successful: initial_payload.successful,
+            failed: initial_payload.failed,
             throughput_successful: 0,
             throughput_failed: 0
           }
 
-          {:ok, assign(socket, pipeline: pipeline, stats: stats)}
+          layers = PipelineGraph.build_layers(initial_payload.topology_workload)
+
+          {:ok, assign(socket, pipeline: pipeline, stats: stats, layers: layers)}
         else
           {:error, error} ->
             {:ok, assign(socket, pipeline: nil, error: error)}
@@ -90,21 +90,20 @@ defmodule BroadwayDashboard do
   end
 
   @impl true
-  def handle_info({:refresh_stats, pipeline}, socket) do
-    if pipeline == socket.assigns.pipeline do
-      node = socket.assigns.page.node
-
+  def handle_info({:update_pipeline, payload}, socket) do
+    if socket.assigns.pipeline == payload.pipeline do
       previous_stats = socket.assigns.stats
-      {:ok, {successful, failed}} = count(node, pipeline)
 
       stats = %{
-        successful: successful,
-        failed: failed,
-        throughput_successful: successful - previous_stats.successful,
-        throughput_failed: failed - previous_stats.failed
+        successful: payload.successful,
+        failed: payload.failed,
+        throughput_successful: payload.successful - previous_stats.successful,
+        throughput_failed: payload.failed - previous_stats.failed
       }
 
-      {:noreply, assign(socket, :stats, stats)}
+      layers = PipelineGraph.build_layers(payload.topology_workload)
+
+      {:noreply, assign(socket, stats: stats, layers: layers)}
     else
       {:noreply, socket}
     end
@@ -161,7 +160,11 @@ defmodule BroadwayDashboard do
             pipeline_throughput_row(assigns.stats)
           ]
         ),
-        columns(components: [pipeline_graph_row(assigns.page.node, assigns.pipeline)])
+        columns(
+          components: [
+            pipeline_graph_row(assigns.layers)
+          ]
+        )
       ]
     )
   end
@@ -222,10 +225,7 @@ defmodule BroadwayDashboard do
   processes in red.
   """
 
-  defp pipeline_graph_row(node, pipeline) do
-    {:ok, topology} = topology(node, pipeline)
-    {:ok, layers} = build_graph_layers(node, pipeline, topology)
-
+  defp pipeline_graph_row(layers) do
     row(
       title: "Graph",
       components: [
@@ -275,36 +275,6 @@ defmodule BroadwayDashboard do
 
       nil ->
         {:error, :broadway_is_not_loaded}
-    end
-  end
-
-  defp build_graph_layers(node, pipeline, topology) do
-    case :rpc.call(node, PipelineGraph, :build_layers, [pipeline, topology]) do
-      {:badrpc, _reason} = error ->
-        {:error, error}
-
-      layers ->
-        {:ok, layers}
-    end
-  end
-
-  defp topology(node, pipeline) do
-    case :rpc.call(node, Broadway, :topology, [pipeline]) do
-      {:badrpc, _reason} = error ->
-        {:error, error}
-
-      topology when is_list(topology) ->
-        {:ok, topology}
-    end
-  end
-
-  defp count(node, pipeline) do
-    case :rpc.call(node, Counters, :count, [pipeline]) do
-      {:badrpc, _reason} = error ->
-        {:error, error}
-
-      result ->
-        result
     end
   end
 end

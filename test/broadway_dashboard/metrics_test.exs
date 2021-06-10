@@ -1,7 +1,7 @@
 defmodule BroadwayDashboard.MetricsTest do
   use ExUnit.Case, async: false
 
-  alias BroadwayDashboard.{Counters, Metrics}
+  alias BroadwayDashboard.Metrics
   import BroadwayDashboard.BroadwaySupport
 
   test "subscribe a process to a pipeline and ask it to refresh stats" do
@@ -13,24 +13,24 @@ defmodule BroadwayDashboard.MetricsTest do
     proc =
       spawn_link(fn ->
         receive do
-          {:refresh_stats, ^broadway} ->
-            send(me, :refreshed)
+          {:update_pipeline, payload} ->
+            send(me, {:refreshed, payload})
         end
       end)
 
     {:ok, _} =
       start_supervised({Metrics, [pipeline: broadway, name: server_name]}, id: server_name)
 
-    assert :ok = Metrics.listen(node(), proc, broadway)
+    assert {:ok, _payload} = Metrics.listen(node(), proc, broadway)
 
     send(server_name, :refresh)
 
-    assert_receive :refreshed
+    assert_receive {:refreshed, payload}
+    assert payload.pipeline == broadway
   end
 
   test "returns error if pipeline is not running" do
     broadway = new_unique_name()
-    server_name = Metrics.server_name(broadway)
 
     proc =
       spawn_link(fn ->
@@ -38,9 +38,6 @@ defmodule BroadwayDashboard.MetricsTest do
           _ -> :ok
         end
       end)
-
-    {:ok, _} =
-      start_supervised({Metrics, [pipeline: broadway, name: server_name]}, id: server_name)
 
     assert {:error, :pipeline_not_found} = Metrics.listen(node(), proc, broadway)
   end
@@ -52,22 +49,20 @@ defmodule BroadwayDashboard.MetricsTest do
     proc =
       spawn_link(fn ->
         receive do
-          {:refresh_stats, ^broadway} ->
+          {:update_pipeline, %{pipeline: ^broadway}} ->
             :ok
         end
       end)
 
-    {:ok, _} =
+    {:ok, metrics} =
       start_supervised({Metrics, [pipeline: broadway, name: server_name]}, id: server_name)
 
-    :ok = Metrics.listen(node(), proc, broadway)
-
-    :ok = Counters.incr(broadway, 1200, 1)
-    {:ok, {1200, 1}} = Counters.count(broadway)
+    {:ok, _payload} = Metrics.listen(node(), proc, broadway)
+    counters = :sys.get_state(metrics).counters
 
     assert :ok = Metrics.ensure_counters_restarted(broadway)
 
-    assert {:ok, {0, 0}} = Counters.count(broadway)
+    assert counters != :sys.get_state(metrics).counters
   end
 
   test "shutdown server when there is no listener" do
@@ -79,7 +74,7 @@ defmodule BroadwayDashboard.MetricsTest do
     proc =
       spawn_link(fn ->
         receive do
-          {:refresh_stats, ^broadway} ->
+          {:update_pipeline, %{pipeline: ^broadway}} ->
             send(me, :refreshed)
             :ok
         end
@@ -90,9 +85,11 @@ defmodule BroadwayDashboard.MetricsTest do
         id: server_name
       )
 
-    :ok = Metrics.listen(node(), proc, broadway)
+    {:ok, _payload} = Metrics.listen(node(), proc, broadway)
 
     assert_receive :refreshed
+    Process.sleep(10)
+
     refute Process.alive?(proc)
 
     # Wait for shutdown timer

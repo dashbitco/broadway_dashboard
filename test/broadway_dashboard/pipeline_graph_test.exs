@@ -23,7 +23,7 @@ defmodule BroadwayDashboard.PipelineGraphTest do
   end
 
   describe "build_layers/2" do
-    test "new version - without batchers" do
+    test "without batchers" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder,
@@ -33,9 +33,10 @@ defmodule BroadwayDashboard.PipelineGraphTest do
         processors: [default: [concurrency: 3]]
       )
 
-      Counters.start!(broadway)
-
       topology = Broadway.topology(broadway)
+      counters = Counters.build(topology)
+
+      topology_workload = Counters.topology_workload(counters, topology)
 
       assert [
                [%{id: _prod_id, children: [_proc1, _proc2, _proc3], data: "prod_0"}],
@@ -44,10 +45,10 @@ defmodule BroadwayDashboard.PipelineGraphTest do
                  %{id: _proc_1, children: [], data: %{label: "proc_1", detail: 0}},
                  %{id: _proc_2, children: [], data: %{label: "proc_2", detail: 0}}
                ]
-             ] = PipelineGraph.build_layers(broadway, topology)
+             ] = PipelineGraph.build_layers(topology_workload)
     end
 
-    test "new verion - with batchers" do
+    test "with batchers" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder,
@@ -58,9 +59,10 @@ defmodule BroadwayDashboard.PipelineGraphTest do
         batchers: [default: [concurrency: 2], s3: [concurrency: 1]]
       )
 
-      Counters.start!(broadway)
-
       topology = Broadway.topology(broadway)
+      counters = Counters.build(topology)
+
+      topology_workload = Counters.topology_workload(counters, topology)
 
       assert [
                [%{id: prod_id, children: [proc_0, proc_1, proc_2], data: "prod_0"}],
@@ -98,7 +100,7 @@ defmodule BroadwayDashboard.PipelineGraphTest do
                  %{children: [], data: %{detail: 0, label: "proc_1"}, id: batch_proc_1},
                  %{children: [], data: %{detail: 0, label: "proc_0"}, id: batch_proc_s3}
                ]
-             ] = PipelineGraph.build_layers(broadway, topology)
+             ] = PipelineGraph.build_layers(topology_workload)
 
       assert prod_id == :"#{broadway}.Broadway.Producer_0"
 

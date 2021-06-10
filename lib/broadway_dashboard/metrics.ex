@@ -95,18 +95,19 @@ defmodule BroadwayDashboard.Metrics do
     interval = opts[:interval] || @default_interval
     pipeline = opts[:pipeline]
 
+    topology = Broadway.topology(pipeline)
+    counters = Counters.build(topology)
+
     state = %{
       pipeline: pipeline,
       listeners: Map.new(),
       interval: interval,
+      counters: counters,
       shutdown_timer: nil,
-      mode: opts[:refresh_mode]
+      mode: opts[:refresh_mode] || :auto
     }
 
-    # TODO: get counters ref and pass to telemetry
-    Counters.start(pipeline)
-
-    Telemetry.attach(self(), pipeline)
+    Telemetry.attach(self(), pipeline, counters)
 
     {:ok, Map.put(state, :timer, maybe_schedule_refresh(state))}
   end
@@ -119,9 +120,13 @@ defmodule BroadwayDashboard.Metrics do
 
   @impl true
   def handle_call(:ensure_counters_restarted, _, state) do
-    Counters.start!(state.pipeline)
+    topology = Broadway.topology(state.pipeline)
+    counters = Counters.build(topology)
 
-    {:reply, :ok, state}
+    Telemetry.detach(self())
+    Telemetry.attach(self(), state.pipeline, counters)
+
+    {:reply, :ok, %{state | counters: counters}}
   end
 
   @impl true
@@ -132,12 +137,16 @@ defmodule BroadwayDashboard.Metrics do
 
     if state.shutdown_timer, do: Process.cancel_timer(state.shutdown_timer)
 
-    {:reply, :ok, %{state | listeners: listeners, shutdown_timer: nil}}
+    {:reply, {:ok, build_update_payload(state)},
+     %{state | listeners: listeners, shutdown_timer: nil}}
   end
 
   @impl true
   def handle_info(:refresh, state) do
-    for pid <- Map.values(state.listeners), do: send(pid, {:refresh_stats, state.pipeline})
+    payload = build_update_payload(state)
+
+    for pid <- Map.values(state.listeners),
+        do: send(pid, {:update_pipeline, payload})
 
     {:noreply, %{state | timer: maybe_schedule_refresh(state)}}
   end
@@ -165,12 +174,24 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   @impl true
-  def terminate(_reason, state) do
+  def terminate(_reason, _state) do
     Telemetry.detach(self())
 
-    Counters.erase(state.pipeline)
-
     :ok
+  end
+
+  defp build_update_payload(state) do
+    topology = Broadway.topology(state.pipeline)
+
+    topology_workload = Counters.topology_workload(state.counters, topology)
+    {:ok, {successful, failed}} = Counters.count(state.counters)
+
+    %{
+      pipeline: state.pipeline,
+      topology_workload: topology_workload,
+      successful: successful,
+      failed: failed
+    }
   end
 
   defp maybe_schedule_shutdown(state) do

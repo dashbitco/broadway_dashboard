@@ -27,8 +27,7 @@ defmodule Demo.Pipeline do
       ],
       batchers: [
         default: [batch_size: 20, concurrency: 3, batch_timeout: 2000],
-        s3: [concurrency: 3, batch_size: 15, batch_timeout: 2000],
-        s4: [concurrency: 3, batch_size: 15, batch_timeout: 2000]
+        s3: [concurrency: 3, batch_size: 15, batch_timeout: 2000]
       ]
     )
   end
