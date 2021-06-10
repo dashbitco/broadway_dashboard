@@ -118,13 +118,13 @@ defmodule BroadwayDashboard.CountersTest do
     start = System.monotonic_time()
 
     Counters.put_processor_start(counters, 0, start)
-    assert {:ok, ^start} = Counters.get_processor_start(counters, 0)
+    assert {:ok, ^start} = Counters.fetch_processor_start(counters, 0)
 
     Counters.put_processor_start(counters, 19, start)
-    assert {:ok, ^start} = Counters.get_processor_start(counters, 19)
+    assert {:ok, ^start} = Counters.fetch_processor_start(counters, 19)
 
     Counters.put_processor_start(counters, 39, start)
-    assert {:ok, ^start} = Counters.get_processor_start(counters, 39)
+    assert {:ok, ^start} = Counters.fetch_processor_start(counters, 39)
   end
 
   test "get_processor_end/2 returns the end time of a processor" do
@@ -138,13 +138,13 @@ defmodule BroadwayDashboard.CountersTest do
     end_time = System.monotonic_time()
 
     Counters.put_processor_end(counters, 0, end_time)
-    assert {:ok, ^end_time} = Counters.get_processor_end(counters, 0)
+    assert {:ok, ^end_time} = Counters.fetch_processor_end(counters, 0)
 
     Counters.put_processor_end(counters, 19, end_time)
-    assert {:ok, ^end_time} = Counters.get_processor_end(counters, 19)
+    assert {:ok, ^end_time} = Counters.fetch_processor_end(counters, 19)
 
     Counters.put_processor_end(counters, 39, end_time)
-    assert {:ok, ^end_time} = Counters.get_processor_end(counters, 39)
+    assert {:ok, ^end_time} = Counters.fetch_processor_end(counters, 39)
   end
 
   test "get_processor_processing_factor/2 returns the end time of a processor" do
@@ -158,13 +158,13 @@ defmodule BroadwayDashboard.CountersTest do
     end_time = System.monotonic_time()
 
     Counters.put_processor_processing_factor(counters, 0, end_time)
-    assert {:ok, ^end_time} = Counters.get_processor_processing_factor(counters, 0)
+    assert {:ok, ^end_time} = Counters.fetch_processor_processing_factor(counters, 0)
 
     Counters.put_processor_processing_factor(counters, 19, end_time)
-    assert {:ok, ^end_time} = Counters.get_processor_processing_factor(counters, 19)
+    assert {:ok, ^end_time} = Counters.fetch_processor_processing_factor(counters, 19)
 
     Counters.put_processor_processing_factor(counters, 39, end_time)
-    assert {:ok, ^end_time} = Counters.get_processor_processing_factor(counters, 39)
+    assert {:ok, ^end_time} = Counters.fetch_processor_processing_factor(counters, 39)
   end
 
   test "put_batcher_start/3 sets the start time for a batcher" do
@@ -261,9 +261,9 @@ defmodule BroadwayDashboard.CountersTest do
     start = System.monotonic_time()
 
     :ok = Counters.put_batcher_start(counters, :default, start)
-    assert {:ok, ^start} = Counters.get_batcher_start(counters, :default)
+    assert {:ok, ^start} = Counters.fetch_batcher_start(counters, :default)
 
-    assert {:error, :batcher_position_not_found} = Counters.get_batcher_start(counters, :sqs)
+    assert {:error, :batcher_position_not_found} = Counters.fetch_batcher_start(counters, :sqs)
   end
 
   test "get_batcher_end/2 gets the end time for a batcher" do
@@ -283,12 +283,12 @@ defmodule BroadwayDashboard.CountersTest do
 
     Counters.put_batcher_end(counters, :default, end_time)
 
-    assert {:ok, ^end_time} = Counters.get_batcher_end(counters, :default)
+    assert {:ok, ^end_time} = Counters.fetch_batcher_end(counters, :default)
 
     Counters.put_batcher_end(counters, :s3, end_time)
-    assert {:ok, ^end_time} = Counters.get_batcher_end(counters, :s3)
+    assert {:ok, ^end_time} = Counters.fetch_batcher_end(counters, :s3)
 
-    assert {:error, :batcher_position_not_found} = Counters.get_batcher_end(counters, :sqs)
+    assert {:error, :batcher_position_not_found} = Counters.fetch_batcher_end(counters, :sqs)
   end
 
   test "get_batcher_processing_factor/3 gets the processing factor for a batcher" do
@@ -307,13 +307,13 @@ defmodule BroadwayDashboard.CountersTest do
     factor = System.monotonic_time()
 
     Counters.put_batcher_processing_factor(counters, :default, factor)
-    assert {:ok, ^factor} = Counters.get_batcher_processing_factor(counters, :default)
+    assert {:ok, ^factor} = Counters.fetch_batcher_processing_factor(counters, :default)
 
     Counters.put_batcher_processing_factor(counters, :s3, factor)
-    assert {:ok, ^factor} = Counters.get_batcher_processing_factor(counters, :s3)
+    assert {:ok, ^factor} = Counters.fetch_batcher_processing_factor(counters, :s3)
 
     assert {:error, :batcher_position_not_found} =
-             Counters.get_batcher_processing_factor(counters, :sqs)
+             Counters.fetch_batcher_processing_factor(counters, :sqs)
   end
 
   test "put_batch_processor_start/4 puts the value" do
@@ -332,12 +332,12 @@ defmodule BroadwayDashboard.CountersTest do
     factor = System.monotonic_time()
 
     Counters.put_batch_processor_start(counters, :default, 1, factor)
-    assert {:ok, ^factor} = Counters.get_batch_processor_start(counters, :default, 1)
+    assert {:ok, ^factor} = Counters.fetch_batch_processor_start(counters, :default, 1)
 
     Counters.put_batch_processor_start(counters, :s3, 3, factor)
-    assert {:ok, ^factor} = Counters.get_batch_processor_start(counters, :s3, 3)
+    assert {:ok, ^factor} = Counters.fetch_batch_processor_start(counters, :s3, 3)
 
     assert {:error, :batcher_position_not_found} =
-             Counters.get_batch_processor_processing_factor(counters, :sqs, 4)
+             Counters.fetch_batch_processor_processing_factor(counters, :sqs, 4)
   end
 end

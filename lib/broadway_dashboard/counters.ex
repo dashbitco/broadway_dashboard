@@ -1,7 +1,7 @@
 defmodule BroadwayDashboard.Counters do
   @moduledoc false
 
-  # This represents the counters of a pipeline.
+  # Represents the counters of a pipeline.
   #
   # It has a counter with two entries (for success and errors),
   # and an "atomics" with N-entries to store each stage "start",
@@ -93,7 +93,7 @@ defmodule BroadwayDashboard.Counters do
 
             workloads =
               for idx <- 0..(group.concurrency - 1) do
-                {:ok, value} = get_processor_processing_factor(counters, idx)
+                {:ok, value} = fetch_processor_processing_factor(counters, idx)
                 value
               end
 
@@ -101,11 +101,11 @@ defmodule BroadwayDashboard.Counters do
 
           :batchers ->
             Enum.map(groups, fn group ->
-              {:ok, batcher_workload} = get_batcher_processing_factor(counters, group.batcher_key)
+              {:ok, batcher_workload} = fetch_batcher_processing_factor(counters, group.batcher_key)
 
               workloads =
                 for idx <- 0..(group.concurrency - 1) do
-                  {:ok, value} = get_processor_processing_factor(counters, idx)
+                  {:ok, value} = fetch_processor_processing_factor(counters, idx)
                   value
                 end
 
@@ -139,15 +139,15 @@ defmodule BroadwayDashboard.Counters do
     :atomics.put(counters.atomics, counters.stages * 2 + index + 1, factor)
   end
 
-  def get_processor_start(%__MODULE__{} = counters, index) when index >= 0 do
+  def fetch_processor_start(%__MODULE__{} = counters, index) when index >= 0 do
     {:ok, :atomics.get(counters.atomics, index + 1)}
   end
 
-  def get_processor_end(%__MODULE__{} = counters, index) when index >= 0 do
+  def fetch_processor_end(%__MODULE__{} = counters, index) when index >= 0 do
     {:ok, :atomics.get(counters.atomics, counters.stages + index + 1)}
   end
 
-  def get_processor_processing_factor(%__MODULE__{} = counters, index) when index >= 0 do
+  def fetch_processor_processing_factor(%__MODULE__{} = counters, index) when index >= 0 do
     {:ok, :atomics.get(counters.atomics, counters.stages * 2 + index + 1)}
   end
 
@@ -174,26 +174,25 @@ defmodule BroadwayDashboard.Counters do
     end
   end
 
-  def get_batcher_start(%__MODULE__{} = counters, batcher_key) do
+  def fetch_batcher_start(%__MODULE__{} = counters, batcher_key) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
       {:ok, :atomics.get(counters.atomics, position)}
     end
   end
 
-  def get_batcher_end(%__MODULE__{} = counters, batcher_key) do
+  def fetch_batcher_end(%__MODULE__{} = counters, batcher_key) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
       {:ok, :atomics.get(counters.atomics, counters.stages + position)}
     end
   end
 
-  def get_batcher_processing_factor(%__MODULE__{} = counters, batcher_key) do
+  def fetch_batcher_processing_factor(%__MODULE__{} = counters, batcher_key) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
       {:ok, :atomics.get(counters.atomics, counters.stages * 2 + position)}
     end
   end
 
   ## Batch processors
-  # TODO: test me
 
   def put_batch_processor_start(%__MODULE__{} = counters, batcher_key, index, start) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
@@ -213,19 +212,19 @@ defmodule BroadwayDashboard.Counters do
     end
   end
 
-  def get_batch_processor_start(%__MODULE__{} = counters, batcher_key, index) do
+  def fetch_batch_processor_start(%__MODULE__{} = counters, batcher_key, index) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
       {:ok, :atomics.get(counters.atomics, position + index + 1)}
     end
   end
 
-  def get_batch_processor_end(%__MODULE__{} = counters, batcher_key, index) do
+  def fetch_batch_processor_end(%__MODULE__{} = counters, batcher_key, index) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
       {:ok, :atomics.get(counters.atomics, counters.stages + position + index + 1)}
     end
   end
 
-  def get_batch_processor_processing_factor(%__MODULE__{} = counters, batcher_key, index) do
+  def fetch_batch_processor_processing_factor(%__MODULE__{} = counters, batcher_key, index) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
       from = counters.stages * 2 + position + index + 1
       # IO.inspect(:atomics.get(counters.atomics, from - 2))
@@ -233,6 +232,9 @@ defmodule BroadwayDashboard.Counters do
     end
   end
 
+  @doc """
+  Counts the successful and failed events.
+  """
   def count(counters) do
     successful = :counters.get(counters.counters, 1)
     failed = :counters.get(counters.counters, 2)

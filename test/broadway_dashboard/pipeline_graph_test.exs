@@ -23,12 +23,7 @@ defmodule BroadwayDashboard.PipelineGraphTest do
   end
 
   describe "build_layers/2" do
-    # TODO: idea
-    # has a thing called "topology workload"
-    # this is the topology structure, but with the workload (factor) of
-    # each group.
-    # Like this:
-    test "new version - without batchers" do
+    test "without batchers" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder,
@@ -53,7 +48,7 @@ defmodule BroadwayDashboard.PipelineGraphTest do
              ] = PipelineGraph.build_layers(topology_workload)
     end
 
-    test "new verion - with batchers" do
+    test "with batchers" do
       broadway = new_unique_name()
 
       Broadway.start_link(Forwarder,

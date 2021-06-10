@@ -69,8 +69,8 @@ defmodule BroadwayDashboard.Telemetry do
       when stage_layer in [:processor, :batcher, :consumer] do
     case stage_layer do
       :processor ->
-        {:ok, start_time} = Counters.get_processor_start(counters, metadata.index)
-        {:ok, last_end_time} = Counters.get_processor_end(counters, metadata.index)
+        {:ok, start_time} = Counters.fetch_processor_start(counters, metadata.index)
+        {:ok, last_end_time} = Counters.fetch_processor_end(counters, metadata.index)
 
         factor = calc_factor(start_time, last_end_time, measurements.duration)
 
@@ -87,8 +87,8 @@ defmodule BroadwayDashboard.Telemetry do
           )
 
       :batcher ->
-        {:ok, start_time} = Counters.get_batcher_start(counters, metadata.batcher_key)
-        {:ok, last_end_time} = Counters.get_batcher_end(counters, metadata.batcher_key)
+        {:ok, start_time} = Counters.fetch_batcher_start(counters, metadata.batcher_key)
+        {:ok, last_end_time} = Counters.fetch_batcher_end(counters, metadata.batcher_key)
 
         factor = calc_factor(start_time, last_end_time, measurements.duration)
 
@@ -99,8 +99,8 @@ defmodule BroadwayDashboard.Telemetry do
         key = metadata.batch_info.batcher
         index = metadata.index
 
-        {:ok, start_time} = Counters.get_batch_processor_start(counters, key, index)
-        {:ok, last_end_time} = Counters.get_batch_processor_end(counters, key, index)
+        {:ok, start_time} = Counters.fetch_batch_processor_start(counters, key, index)
+        {:ok, last_end_time} = Counters.fetch_batch_processor_end(counters, key, index)
 
         factor = calc_factor(start_time, last_end_time, measurements.duration)
 
