@@ -5,9 +5,9 @@ defmodule BroadwayDashboard.Counters do
   #
   # It has a counter with two entries (for success and errors),
   # and an "atomics" with N-entries to store each stage "start",
-  # "end" and "work workload".
+  # "end" and "workload".
   #
-  # The "total" represents the size of stages in a pipeline.
+  # The "stages" represents the size of stages in a pipeline.
   # So for example, if the pipeline has this config:
   #
   #   [
@@ -33,8 +33,8 @@ defmodule BroadwayDashboard.Counters do
   # processor of the previous + 1.
   #
   # This way we can say where each stage is located for the "start"
-  # value. For the "end" value we simply add the "total" to the found
-  # position of start. And for the "work workload" we add the "total" again.
+  # value. For the "end" value we simply add the "stages" to the found
+  # position of start. And for the "workload" we add the "total" again.
 
   defstruct stages: 0, counters: nil, atomics: nil, batchers_positions: %{}
 
@@ -69,6 +69,9 @@ defmodule BroadwayDashboard.Counters do
     }
   end
 
+  @doc """
+  Increments the total of successful and failed events.
+  """
   def incr(%__MODULE__{} = counters, successes, failures) do
     :ok = :counters.add(counters.counters, 1, successes)
     :ok = :counters.add(counters.counters, 2, failures)
@@ -105,7 +108,7 @@ defmodule BroadwayDashboard.Counters do
 
               workloads =
                 for idx <- 0..(group.concurrency - 1) do
-                  {:ok, value} = fetch_processor_workload(counters, idx)
+                  {:ok, value} = fetch_batch_processor_workload(counters, group.batcher_key, idx)
                   value
                 end
 
@@ -226,9 +229,7 @@ defmodule BroadwayDashboard.Counters do
 
   def fetch_batch_processor_workload(%__MODULE__{} = counters, batcher_key, index) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
-      from = counters.stages * 2 + position + index + 1
-      # IO.inspect(:atomics.get(counters.atomics, from - 2))
-      {:ok, :atomics.get(counters.atomics, from)}
+      {:ok, :atomics.get(counters.atomics, counters.stages * 2 + position + index + 1)}
     end
   end
 

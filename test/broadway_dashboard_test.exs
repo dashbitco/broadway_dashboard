@@ -76,6 +76,9 @@ defmodule BroadwayDashboardTest do
     server_name = Metrics.server_name(Demo.Pipeline)
     send(server_name, :refresh)
 
+    # ensure it renders again
+    render(live)
+
     assert has_element?(live, ".banner-card-value", "1")
   end
 

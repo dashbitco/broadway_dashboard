@@ -328,15 +328,81 @@ defmodule BroadwayDashboard.CountersTest do
     ]
 
     counters = Counters.build(topology)
-    workload = System.monotonic_time()
+    start = System.monotonic_time()
 
-    Counters.put_batch_processor_start(counters, :default, 1, workload)
-    assert {:ok, ^workload} = Counters.fetch_batch_processor_start(counters, :default, 1)
+    Counters.put_batch_processor_start(counters, :default, 1, start)
+    assert {:ok, ^start} = Counters.fetch_batch_processor_start(counters, :default, 1)
 
-    Counters.put_batch_processor_start(counters, :s3, 3, workload)
-    assert {:ok, ^workload} = Counters.fetch_batch_processor_start(counters, :s3, 3)
+    Counters.put_batch_processor_start(counters, :s3, 3, start)
+    assert {:ok, ^start} = Counters.fetch_batch_processor_start(counters, :s3, 3)
 
     assert {:error, :batcher_position_not_found} =
              Counters.fetch_batch_processor_workload(counters, :sqs, 4)
+  end
+
+  test "topology_workload/2 builds the workload of a topology" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 3}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 2}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+
+    assert [
+             producers: [%{name: :default, concurrency: 1}],
+             processors: [%{name: :default, concurrency: 3, workloads: [0, 0, 0]}],
+             batchers: [
+               %{
+                 name: :default,
+                 batcher_key: :default,
+                 concurrency: 5,
+                 batcher_workload: 0,
+                 workloads: [0, 0, 0, 0, 0]
+               },
+               %{
+                 name: :s3,
+                 batcher_key: :s3,
+                 concurrency: 2,
+                 batcher_workload: 0,
+                 workloads: [0, 0]
+               }
+             ]
+           ] = Counters.topology_workload(counters, topology)
+
+    :ok = Counters.put_processor_workload(counters, 1, 53)
+    :ok = Counters.put_processor_workload(counters, 2, 89)
+
+    :ok = Counters.put_batcher_workload(counters, :s3, 42)
+    :ok = Counters.put_batcher_workload(counters, :default, 13)
+
+    :ok = Counters.put_batch_processor_workload(counters, :default, 2, 5)
+    :ok = Counters.put_batch_processor_workload(counters, :default, 4, 8)
+
+    :ok = Counters.put_batch_processor_workload(counters, :s3, 0, 42)
+
+    assert [
+             producers: [%{name: :default, concurrency: 1}],
+             processors: [%{name: :default, concurrency: 3, workloads: [0, 53, 89]}],
+             batchers: [
+               %{
+                 name: :default,
+                 batcher_key: :default,
+                 concurrency: 5,
+                 batcher_workload: 13,
+                 workloads: [0, 0, 5, 0, 8]
+               },
+               %{
+                 name: :s3,
+                 batcher_key: :s3,
+                 concurrency: 2,
+                 batcher_workload: 42,
+                 workloads: [42, 0]
+               }
+             ]
+           ] = Counters.topology_workload(counters, topology)
   end
 end
