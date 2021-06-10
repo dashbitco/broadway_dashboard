@@ -1,7 +1,7 @@
 defmodule BroadwayDashboard.PipelineGraphTest do
   use ExUnit.Case, async: true
 
-  alias BroadwayDashboard.NewCounters
+  alias BroadwayDashboard.Counters
   alias BroadwayDashboard.PipelineGraph
 
   defmodule Forwarder do
@@ -39,9 +39,9 @@ defmodule BroadwayDashboard.PipelineGraphTest do
       )
 
       topology = Broadway.topology(broadway)
-      counters = NewCounters.build(topology)
+      counters = Counters.build(topology)
 
-      topology_workload = NewCounters.topology_workload(counters, topology)
+      topology_workload = Counters.topology_workload(counters, topology)
 
       assert [
                [%{id: _prod_id, children: [_proc1, _proc2, _proc3], data: "prod_0"}],
@@ -65,9 +65,9 @@ defmodule BroadwayDashboard.PipelineGraphTest do
       )
 
       topology = Broadway.topology(broadway)
-      counters = NewCounters.build(topology)
+      counters = Counters.build(topology)
 
-      topology_workload = NewCounters.topology_workload(counters, topology)
+      topology_workload = Counters.topology_workload(counters, topology)
 
       assert [
                [%{id: prod_id, children: [proc_0, proc_1, proc_2], data: "prod_0"}],

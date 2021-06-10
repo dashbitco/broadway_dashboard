@@ -1,161 +1,343 @@
 defmodule BroadwayDashboard.CountersTest do
   use ExUnit.Case, async: true
-  import BroadwayDashboard.BroadwaySupport
 
   alias BroadwayDashboard.Counters
 
-  test "start/1 starts counters for a pipeline" do
-    broadway = start_linked_dummy_pipeline()
+  test "build/1 builds counters with a topology without batchers" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
 
-    assert :ok = Counters.start(broadway)
-    assert :persistent_term.get({Counters, broadway})
+    assert %Counters{stages: 40, counters: counters, atomics: atomics, batchers_positions: %{}} =
+             Counters.build(topology)
 
-    assert :already_started = Counters.start(broadway)
+    assert %{size: 2} = :counters.info(counters)
+    assert %{size: 120} = :atomics.info(atomics)
   end
 
-  test "start/1 returns error if pipeline is not running" do
-    broadway = new_unique_name()
+  test "build/1 builds counters with a topology with batchers" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
 
-    assert {:error, :pipeline_is_not_running} = Counters.start(broadway)
-  end
+    assert %Counters{stages: 50, counters: counters, atomics: atomics, batchers_positions: pos} =
+             Counters.build(topology)
 
-  test "start!/1 rebuild counters for a pipeline if exists" do
-    broadway = start_linked_dummy_pipeline()
+    assert %{size: 2} = :counters.info(counters)
+    assert %{size: 150} = :atomics.info(atomics)
 
-    assert :ok = Counters.start!(broadway)
-    assert :persistent_term.get({Counters, broadway})
-
-    assert :ok = Counters.start!(broadway)
-  end
-
-  test "start!/1 raises if pipeline is not running" do
-    broadway = new_unique_name()
-
-    assert_raise ArgumentError, "pipeline is not running: #{inspect(broadway)}", fn ->
-      Counters.start!(broadway)
-    end
-  end
-
-  test "erase/1 erases data from persistent_term" do
-    broadway = start_linked_dummy_pipeline()
-
-    Counters.start!(broadway)
-
-    assert Counters.erase(broadway)
-    refute :persistent_term.get({Counters, broadway}, false)
-  end
-
-  test "put_start/3 stores the last started time for a stage" do
-    broadway = start_linked_dummy_pipeline()
-
-    :ok = Counters.start(broadway)
-
-    topology = Broadway.topology(broadway)
-    [%{batcher_name: default_batcher} | _] = topology[:batchers]
-
-    assert :ok = Counters.put_start(broadway, default_batcher, 42000)
-
-    assert {:ok, 42000} = Counters.fetch_start(broadway, default_batcher)
-
-    assert {:error, :stage_not_found} = Counters.put_start(broadway, Module, 10000)
-  end
-
-  test "fetch_start/2 returns the last start time of a stage" do
-    broadway = start_linked_dummy_pipeline()
-
-    :ok = Counters.start(broadway)
-
-    topology = Broadway.topology(broadway)
-    [%{batcher_name: default_batcher} | _] = topology[:batchers]
-
-    assert {:ok, 0} = Counters.fetch_start(broadway, default_batcher)
-
-    now = System.monotonic_time()
-
-    assert :ok = Counters.put_start(broadway, default_batcher, now)
-
-    assert {:ok, ^now} = Counters.fetch_start(broadway, default_batcher)
-    assert {:error, :stage_not_found} = Counters.fetch_start(broadway, Module)
-  end
-
-  test "put_end/3 stores the last ended time for a stage" do
-    broadway = start_linked_dummy_pipeline()
-
-    :ok = Counters.start(broadway)
-
-    topology = Broadway.topology(broadway)
-    [%{batcher_name: default_batcher} | _] = topology[:batchers]
-
-    assert :ok = Counters.put_end(broadway, default_batcher, 42000)
-
-    assert {:ok, 42000} = Counters.fetch_end(broadway, default_batcher)
-
-    assert {:error, :stage_not_found} = Counters.put_end(broadway, Module, 10000)
-  end
-
-  test "fetch_end/2 returns the last end time of a stage" do
-    broadway = start_linked_dummy_pipeline()
-
-    :ok = Counters.start(broadway)
-
-    topology = Broadway.topology(broadway)
-    [%{batcher_name: default_batcher} | _] = topology[:batchers]
-
-    assert {:ok, 0} = Counters.fetch_end(broadway, default_batcher)
-
-    now = System.monotonic_time()
-
-    assert :ok = Counters.put_end(broadway, default_batcher, now)
-
-    assert {:ok, ^now} = Counters.fetch_end(broadway, default_batcher)
-    assert {:error, :stage_not_found} = Counters.fetch_end(broadway, Module)
-  end
-
-  test "put_processing_factor/3 stores the last ended time for a stage" do
-    broadway = start_linked_dummy_pipeline()
-
-    :ok = Counters.start(broadway)
-
-    topology = Broadway.topology(broadway)
-    [%{batcher_name: default_batcher} | _] = topology[:batchers]
-
-    assert :ok = Counters.put_processing_factor(broadway, default_batcher, 42000)
-
-    assert {:ok, 42000} = Counters.fetch_processing_factor(broadway, default_batcher)
-
-    assert {:error, :stage_not_found} = Counters.put_processing_factor(broadway, Module, 10000)
-  end
-
-  test "fetch_processing_factor/2 returns the last end time of a stage" do
-    broadway = start_linked_dummy_pipeline()
-
-    :ok = Counters.start(broadway)
-
-    topology = Broadway.topology(broadway)
-    [%{batcher_name: default_batcher} | _] = topology[:batchers]
-
-    assert {:ok, 0} = Counters.fetch_processing_factor(broadway, default_batcher)
-
-    now = System.monotonic_time()
-
-    assert :ok = Counters.put_processing_factor(broadway, default_batcher, now)
-
-    assert {:ok, ^now} = Counters.fetch_processing_factor(broadway, default_batcher)
-    assert {:error, :stage_not_found} = Counters.fetch_processing_factor(broadway, Module)
+    assert %{default: 41, s3: 47} == pos
   end
 
   test "incr/3 increments successes and failures" do
-    broadway = start_linked_dummy_pipeline()
+    ref = :counters.new(2, [:write_concurrency])
+    counters = %Counters{counters: ref}
 
-    :ok = Counters.start(broadway)
+    assert :ok = Counters.incr(counters, 15, 1)
+    assert :counters.get(ref, 1) == 15
+    assert :counters.get(ref, 2) == 1
+  end
 
-    assert :ok = Counters.incr(broadway, 5, 0)
-    assert {:ok, {5, 0}} = Counters.count(broadway)
+  test "put_processor_start/3 sets the start time of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
 
-    assert :ok = Counters.incr(broadway, 0, 0)
-    assert {:ok, {5, 0}} = Counters.count(broadway)
+    counters = Counters.build(topology)
+    start = System.monotonic_time()
 
-    assert :ok = Counters.incr(broadway, 0, 10)
-    assert {:ok, {5, 10}} = Counters.count(broadway)
+    assert :ok = Counters.put_processor_start(counters, 0, start)
+    assert :atomics.get(counters.atomics, 1) == start
+
+    assert :ok = Counters.put_processor_start(counters, 19, start)
+    assert :atomics.get(counters.atomics, 20) == start
+
+    assert :ok = Counters.put_processor_start(counters, 39, start)
+    assert :atomics.get(counters.atomics, 40) == start
+  end
+
+  test "put_processor_end/3 sets the end time of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
+
+    counters = Counters.build(topology)
+    initial_pos = counters.stages
+    end_time = System.monotonic_time()
+
+    assert :ok = Counters.put_processor_end(counters, 0, end_time)
+    assert :atomics.get(counters.atomics, initial_pos + 1) == end_time
+
+    assert :ok = Counters.put_processor_end(counters, 19, end_time)
+    assert :atomics.get(counters.atomics, initial_pos + 20) == end_time
+
+    assert :ok = Counters.put_processor_end(counters, 39, end_time)
+    assert :atomics.get(counters.atomics, initial_pos + 40) == end_time
+  end
+
+  test "put_processor_processing_factor/3 sets the processing factor of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
+
+    counters = Counters.build(topology)
+    initial_pos = counters.stages * 2
+    factor = 80
+
+    assert :ok = Counters.put_processor_processing_factor(counters, 0, factor)
+    assert :atomics.get(counters.atomics, initial_pos + 1) == factor
+
+    assert :ok = Counters.put_processor_processing_factor(counters, 19, factor)
+    assert :atomics.get(counters.atomics, initial_pos + 20) == factor
+
+    assert :ok = Counters.put_processor_processing_factor(counters, 39, factor)
+    assert :atomics.get(counters.atomics, initial_pos + 40) == factor
+  end
+
+  test "get_processor_start/2 returns the start time of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
+
+    counters = Counters.build(topology)
+    start = System.monotonic_time()
+
+    Counters.put_processor_start(counters, 0, start)
+    assert {:ok, ^start} = Counters.get_processor_start(counters, 0)
+
+    Counters.put_processor_start(counters, 19, start)
+    assert {:ok, ^start} = Counters.get_processor_start(counters, 19)
+
+    Counters.put_processor_start(counters, 39, start)
+    assert {:ok, ^start} = Counters.get_processor_start(counters, 39)
+  end
+
+  test "get_processor_end/2 returns the end time of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
+
+    counters = Counters.build(topology)
+    end_time = System.monotonic_time()
+
+    Counters.put_processor_end(counters, 0, end_time)
+    assert {:ok, ^end_time} = Counters.get_processor_end(counters, 0)
+
+    Counters.put_processor_end(counters, 19, end_time)
+    assert {:ok, ^end_time} = Counters.get_processor_end(counters, 19)
+
+    Counters.put_processor_end(counters, 39, end_time)
+    assert {:ok, ^end_time} = Counters.get_processor_end(counters, 39)
+  end
+
+  test "get_processor_processing_factor/2 returns the end time of a processor" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 40}],
+      batchers: []
+    ]
+
+    counters = Counters.build(topology)
+    end_time = System.monotonic_time()
+
+    Counters.put_processor_processing_factor(counters, 0, end_time)
+    assert {:ok, ^end_time} = Counters.get_processor_processing_factor(counters, 0)
+
+    Counters.put_processor_processing_factor(counters, 19, end_time)
+    assert {:ok, ^end_time} = Counters.get_processor_processing_factor(counters, 19)
+
+    Counters.put_processor_processing_factor(counters, 39, end_time)
+    assert {:ok, ^end_time} = Counters.get_processor_processing_factor(counters, 39)
+  end
+
+  test "put_batcher_start/3 sets the start time for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+    start = System.monotonic_time()
+
+    assert :ok = Counters.put_batcher_start(counters, :default, start)
+    assert :atomics.get(counters.atomics, proc_concurrency + 1) == start
+
+    assert :ok = Counters.put_batcher_start(counters, :s3, start)
+    # This is 7 because it's 1 from default, + 5 batch processors from default, + 1 s3 batcher
+    assert :atomics.get(counters.atomics, proc_concurrency + 7) == start
+
+    assert {:error, :batcher_position_not_found} =
+             Counters.put_batcher_start(counters, :sqs, start)
+  end
+
+  test "put_batcher_end/3 sets the end time for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+    end_time = System.monotonic_time()
+
+    assert :ok = Counters.put_batcher_end(counters, :default, end_time)
+    assert :atomics.get(counters.atomics, counters.stages + proc_concurrency + 1) == end_time
+
+    assert :ok = Counters.put_batcher_end(counters, :s3, end_time)
+    # This is 7 because it's 1 from default, + 5 batch processors from default, + 1 s3 batcher
+    assert :atomics.get(counters.atomics, counters.stages + proc_concurrency + 7) == end_time
+
+    assert {:error, :batcher_position_not_found} =
+             Counters.put_batcher_end(counters, :sqs, end_time)
+  end
+
+  test "put_batcher_processing_factor/3 sets the processing factor for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+    factor = System.monotonic_time()
+
+    assert :ok = Counters.put_batcher_processing_factor(counters, :default, factor)
+    assert :atomics.get(counters.atomics, counters.stages * 2 + proc_concurrency + 1) == factor
+
+    assert :ok = Counters.put_batcher_processing_factor(counters, :s3, factor)
+    # This is 7 because it's 1 from default, + 5 batch processors from default, + 1 s3 batcher
+    assert :atomics.get(counters.atomics, counters.stages * 2 + proc_concurrency + 7) == factor
+
+    assert {:error, :batcher_position_not_found} =
+             Counters.put_batcher_processing_factor(counters, :sqs, factor)
+  end
+
+  test "get_batcher_start/2 gets the start time for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+    start = System.monotonic_time()
+
+    :ok = Counters.put_batcher_start(counters, :default, start)
+    assert {:ok, ^start} = Counters.get_batcher_start(counters, :default)
+
+    assert {:error, :batcher_position_not_found} = Counters.get_batcher_start(counters, :sqs)
+  end
+
+  test "get_batcher_end/2 gets the end time for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+    end_time = System.monotonic_time()
+
+    Counters.put_batcher_end(counters, :default, end_time)
+
+    assert {:ok, ^end_time} = Counters.get_batcher_end(counters, :default)
+
+    Counters.put_batcher_end(counters, :s3, end_time)
+    assert {:ok, ^end_time} = Counters.get_batcher_end(counters, :s3)
+
+    assert {:error, :batcher_position_not_found} = Counters.get_batcher_end(counters, :sqs)
+  end
+
+  test "get_batcher_processing_factor/3 gets the processing factor for a batcher" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+    factor = System.monotonic_time()
+
+    Counters.put_batcher_processing_factor(counters, :default, factor)
+    assert {:ok, ^factor} = Counters.get_batcher_processing_factor(counters, :default)
+
+    Counters.put_batcher_processing_factor(counters, :s3, factor)
+    assert {:ok, ^factor} = Counters.get_batcher_processing_factor(counters, :s3)
+
+    assert {:error, :batcher_position_not_found} =
+             Counters.get_batcher_processing_factor(counters, :sqs)
+  end
+
+  test "put_batch_processor_start/4 puts the value" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+    factor = System.monotonic_time()
+
+    Counters.put_batch_processor_start(counters, :default, 1, factor)
+    assert {:ok, ^factor} = Counters.get_batch_processor_start(counters, :default, 1)
+
+    Counters.put_batch_processor_start(counters, :s3, 3, factor)
+    assert {:ok, ^factor} = Counters.get_batch_processor_start(counters, :s3, 3)
+
+    assert {:error, :batcher_position_not_found} =
+             Counters.get_batch_processor_processing_factor(counters, :sqs, 4)
   end
 end

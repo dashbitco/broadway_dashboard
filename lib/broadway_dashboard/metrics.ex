@@ -2,8 +2,8 @@ defmodule BroadwayDashboard.Metrics do
   @moduledoc false
   use GenServer
 
-  alias BroadwayDashboard.NewCounters
-  alias BroadwayDashboard.NewTelemetry
+  alias BroadwayDashboard.Counters
+  alias BroadwayDashboard.Telemetry
   alias BroadwayDashboard.Teleporter
 
   @default_interval 1_000
@@ -96,7 +96,7 @@ defmodule BroadwayDashboard.Metrics do
     pipeline = opts[:pipeline]
 
     topology = Broadway.topology(pipeline)
-    counters = NewCounters.build(topology)
+    counters = Counters.build(topology)
 
     state = %{
       pipeline: pipeline,
@@ -107,7 +107,7 @@ defmodule BroadwayDashboard.Metrics do
       mode: opts[:refresh_mode] || :auto
     }
 
-    NewTelemetry.attach(self(), pipeline, counters)
+    Telemetry.attach(self(), pipeline, counters)
 
     {:ok, Map.put(state, :timer, maybe_schedule_refresh(state))}
   end
@@ -121,10 +121,10 @@ defmodule BroadwayDashboard.Metrics do
   @impl true
   def handle_call(:ensure_counters_restarted, _, state) do
     topology = Broadway.topology(state.pipeline)
-    counters = NewCounters.build(topology)
+    counters = Counters.build(topology)
 
-    NewTelemetry.detach(self())
-    NewTelemetry.attach(self(), state.pipeline, counters)
+    Telemetry.detach(self())
+    Telemetry.attach(self(), state.pipeline, counters)
 
     {:reply, :ok, %{state | counters: counters}}
   end
@@ -175,7 +175,7 @@ defmodule BroadwayDashboard.Metrics do
 
   @impl true
   def terminate(_reason, _state) do
-    NewTelemetry.detach(self())
+    Telemetry.detach(self())
 
     :ok
   end
@@ -183,8 +183,8 @@ defmodule BroadwayDashboard.Metrics do
   defp build_update_payload(state) do
     topology = Broadway.topology(state.pipeline)
 
-    topology_workload = NewCounters.topology_workload(state.counters, topology)
-    {:ok, {successful, failed}} = NewCounters.count(state.counters)
+    topology_workload = Counters.topology_workload(state.counters, topology)
+    {:ok, {successful, failed}} = Counters.count(state.counters)
 
     %{
       pipeline: state.pipeline,

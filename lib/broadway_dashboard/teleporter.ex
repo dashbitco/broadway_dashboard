@@ -5,10 +5,10 @@ defmodule BroadwayDashboard.Teleporter do
   # to track the pipelines.
 
   @modules [
-    BroadwayDashboard.NewCounters,
+    BroadwayDashboard.Counters,
     BroadwayDashboard.Metrics,
     BroadwayDashboard.PipelineGraph,
-    BroadwayDashboard.NewTelemetry
+    BroadwayDashboard.Telemetry
   ]
 
   @spec teleport_metrics_code(Node.t()) :: :ok | {:error, atom()}
