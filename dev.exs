@@ -130,7 +130,7 @@ defmodule DemoWeb.Router do
     live_dashboard("/dashboard",
       allow_destructive_actions: true,
       additional_pages: [
-        broadway: {BroadwayDashboard, pipelines: [Demo.Pipeline, BikeSharing]}
+        broadway: BroadwayDashboard
       ]
     )
   end

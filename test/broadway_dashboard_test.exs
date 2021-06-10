@@ -7,6 +7,10 @@ defmodule BroadwayDashboardTest do
 
   alias BroadwayDashboard.Metrics
 
+  defp new_unique_name do
+    :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
+  end
+
   test "menu_link/2" do
     link = "https://hexdocs.pm/broadway_dashboard"
 
@@ -21,16 +25,30 @@ defmodule BroadwayDashboardTest do
                %{pipelines: [Module]},
                %{}
              )
+
+    assert {:disabled, "Broadway pipelines", ^link} =
+             BroadwayDashboard.menu_link(
+               %{pipelines: :auto_discover},
+               %{}
+             )
+
+    {:ok, _broadway} = start_supervised({Demo.Pipeline, [broadway_name: new_unique_name()]})
+
+    assert {:ok, "Broadway pipelines"} =
+             BroadwayDashboard.menu_link(
+               %{pipelines: :auto_discover},
+               %{}
+             )
   end
 
   test "redirects to the first pipeline if no pipeline is provided" do
-    {:error, {:live_redirect, %{to: "/dashboard/broadway?nav=Elixir.Demo.Pipeline"}}} =
-      live(build_conn(), "/dashboard/broadway")
+    assert {:error, {:live_redirect, %{to: "/dashboard/broadway?nav=Elixir.Demo.Pipeline"}}} =
+             live(build_conn(), "/dashboard/broadway")
   end
 
   test "redirects to the first pipeline if pipeline provided does not exist" do
-    {:error, {:live_redirect, %{to: "/dashboard/broadway?nav=Elixir.Demo.Pipeline"}}} =
-      live(build_conn(), "/dashboard/broadway?nav=Elixir.IDontExist")
+    assert {:error, {:live_redirect, %{to: "/dashboard/broadway?nav=Elixir.Demo.Pipeline"}}} =
+             live(build_conn(), "/dashboard/broadway?nav=Elixir.IDontExist")
   end
 
   test "redirects to the first pipeline if no pipeline is provided keeping node" do
@@ -38,8 +56,38 @@ defmodule BroadwayDashboardTest do
 
     path_with_node_and_pipeline = "#{base_path}?nav=Elixir.Demo.Pipeline"
 
-    {:error, {:live_redirect, %{to: ^path_with_node_and_pipeline}}} =
-      live(build_conn(), base_path)
+    assert {:error, {:live_redirect, %{to: ^path_with_node_and_pipeline}}} =
+             live(build_conn(), base_path)
+  end
+
+  describe "auto discovery" do
+    test "redirects to home if no pipeline is alive and auto discover is enabled" do
+      assert {:error, {:live_redirect, %{to: "/dashboard/home"}}} =
+               live(build_conn(), "/dashboard/broadway_auto_discovery")
+    end
+
+    test "redirects to the first running pipeline if no pipeline is provided" do
+      name = new_unique_name()
+      {:ok, _broadway} = start_supervised({Demo.Pipeline, [broadway_name: name]})
+
+      assert {:error,
+              {:live_redirect, %{to: "/dashboard/broadway_auto_discovery?nav=" <> nav_name}}} =
+               live(build_conn(), "/dashboard/broadway_auto_discovery")
+
+      assert nav_name == to_string(name)
+    end
+
+    test "shows the pipeline after auto discover" do
+      name = new_unique_name()
+      {:ok, _broadway} = start_supervised({Demo.Pipeline, [broadway_name: name]})
+
+      {:ok, live, _} = live(build_conn(), "/dashboard/broadway_auto_discovery?nav=#{name}")
+
+      rendered = render(live)
+      assert rendered =~ "Updates automatically"
+      assert rendered =~ "Throughput"
+      assert rendered =~ "All time"
+    end
   end
 
   test "shows the pipeline" do

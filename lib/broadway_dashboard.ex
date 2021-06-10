@@ -19,13 +19,16 @@ defmodule BroadwayDashboard do
 
   @impl true
   def init(opts) do
-    pipelines = Keyword.get(opts, :pipelines, [])
+    # In case no pipeline is passed in the router, we auto-discover them.
+    pipelines = with [] <- opts[:pipelines] || [], do: :auto_discover
 
     {:ok, %{pipelines: pipelines}, application: :broadway}
   end
 
   @impl true
   def menu_link(%{pipelines: pipelines}, _capabilities) do
+    pipelines = pipelines_or_auto_discover(pipelines)
+
     case pipelines do
       [] ->
         {:disabled, @page_title, @disabled_link}
@@ -35,8 +38,25 @@ defmodule BroadwayDashboard do
     end
   end
 
+  defp pipelines_or_auto_discover(pipeline_config) do
+    with :auto_discover <- pipeline_config, do: Broadway.all_running()
+  end
+
+  defp pipelines_or_auto_discover(pipeline_config, node) do
+    case pipeline_config do
+      :auto_discover ->
+        with {:badrpc, _error} <- :rpc.call(node, Broadway, :all_running, []) do
+          raise "Unable to auto discover running broadway at node #{inspect(node)}. Check Broadway version."
+        end
+
+      [_ | _] = pipelines ->
+        pipelines
+    end
+  end
+
   @impl true
   def mount(params, %{pipelines: pipelines}, socket) do
+    pipelines = pipelines_or_auto_discover(pipelines, socket.assigns.page.node)
     socket = assign(socket, :pipelines, pipelines)
 
     nav = params["nav"]
