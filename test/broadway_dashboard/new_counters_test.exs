@@ -118,13 +118,13 @@ defmodule BroadwayDashboard.NewCountersTest do
     start = System.monotonic_time()
 
     NewCounters.put_processor_start(counters, 0, start)
-    assert NewCounters.get_processor_start(counters, 0) == start
+    assert {:ok, ^start} = NewCounters.get_processor_start(counters, 0)
 
     NewCounters.put_processor_start(counters, 19, start)
-    assert NewCounters.get_processor_start(counters, 19) == start
+    assert {:ok, ^start} = NewCounters.get_processor_start(counters, 19)
 
     NewCounters.put_processor_start(counters, 39, start)
-    assert NewCounters.get_processor_start(counters, 39) == start
+    assert {:ok, ^start} = NewCounters.get_processor_start(counters, 39)
   end
 
   test "get_processor_end/2 returns the end time of a processor" do
@@ -138,13 +138,13 @@ defmodule BroadwayDashboard.NewCountersTest do
     end_time = System.monotonic_time()
 
     NewCounters.put_processor_end(counters, 0, end_time)
-    assert NewCounters.get_processor_end(counters, 0) == end_time
+    assert {:ok, ^end_time} = NewCounters.get_processor_end(counters, 0)
 
     NewCounters.put_processor_end(counters, 19, end_time)
-    assert NewCounters.get_processor_end(counters, 19) == end_time
+    assert {:ok, ^end_time} = NewCounters.get_processor_end(counters, 19)
 
     NewCounters.put_processor_end(counters, 39, end_time)
-    assert NewCounters.get_processor_end(counters, 39) == end_time
+    assert {:ok, ^end_time} = NewCounters.get_processor_end(counters, 39)
   end
 
   test "get_processor_processing_factor/2 returns the end time of a processor" do
@@ -158,13 +158,13 @@ defmodule BroadwayDashboard.NewCountersTest do
     end_time = System.monotonic_time()
 
     NewCounters.put_processor_processing_factor(counters, 0, end_time)
-    assert NewCounters.get_processor_processing_factor(counters, 0) == end_time
+    assert {:ok, ^end_time} = NewCounters.get_processor_processing_factor(counters, 0)
 
     NewCounters.put_processor_processing_factor(counters, 19, end_time)
-    assert NewCounters.get_processor_processing_factor(counters, 19) == end_time
+    assert {:ok, ^end_time} = NewCounters.get_processor_processing_factor(counters, 19)
 
     NewCounters.put_processor_processing_factor(counters, 39, end_time)
-    assert NewCounters.get_processor_processing_factor(counters, 39) == end_time
+    assert {:ok, ^end_time} = NewCounters.get_processor_processing_factor(counters, 39)
   end
 
   test "put_batcher_start/3 sets the start time for a batcher" do
@@ -261,7 +261,7 @@ defmodule BroadwayDashboard.NewCountersTest do
     start = System.monotonic_time()
 
     :ok = NewCounters.put_batcher_start(counters, :default, start)
-    assert NewCounters.get_batcher_start(counters, :default) == start
+    assert {:ok, ^start} = NewCounters.get_batcher_start(counters, :default)
 
     assert {:error, :batcher_position_not_found} = NewCounters.get_batcher_start(counters, :sqs)
   end
@@ -283,10 +283,10 @@ defmodule BroadwayDashboard.NewCountersTest do
 
     NewCounters.put_batcher_end(counters, :default, end_time)
 
-    assert NewCounters.get_batcher_end(counters, :default) == end_time
+    assert {:ok, ^end_time} = NewCounters.get_batcher_end(counters, :default)
 
     NewCounters.put_batcher_end(counters, :s3, end_time)
-    assert NewCounters.get_batcher_end(counters, :s3) == end_time
+    assert {:ok, ^end_time} = NewCounters.get_batcher_end(counters, :s3)
 
     assert {:error, :batcher_position_not_found} = NewCounters.get_batcher_end(counters, :sqs)
   end
@@ -307,12 +307,37 @@ defmodule BroadwayDashboard.NewCountersTest do
     factor = System.monotonic_time()
 
     NewCounters.put_batcher_processing_factor(counters, :default, factor)
-    assert NewCounters.get_batcher_processing_factor(counters, :default) == factor
+    assert {:ok, ^factor} = NewCounters.get_batcher_processing_factor(counters, :default)
 
     NewCounters.put_batcher_processing_factor(counters, :s3, factor)
-    assert NewCounters.get_batcher_processing_factor(counters, :s3) == factor
+    assert {:ok, ^factor} = NewCounters.get_batcher_processing_factor(counters, :s3)
 
     assert {:error, :batcher_position_not_found} =
              NewCounters.get_batcher_processing_factor(counters, :sqs)
+  end
+
+  test "put_batch_processor_start/4 puts the value" do
+    proc_concurrency = 40
+
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: proc_concurrency}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 3}
+      ]
+    ]
+
+    counters = NewCounters.build(topology)
+    factor = System.monotonic_time()
+
+    NewCounters.put_batch_processor_start(counters, :default, 1, factor)
+    assert {:ok, ^factor} = NewCounters.get_batch_processor_start(counters, :default, 1)
+
+    NewCounters.put_batch_processor_start(counters, :s3, 3, factor)
+    assert {:ok, ^factor} = NewCounters.get_batch_processor_start(counters, :s3, 3)
+
+    assert {:error, :batcher_position_not_found} =
+             NewCounters.get_batch_processor_processing_factor(counters, :sqs, 4)
   end
 end

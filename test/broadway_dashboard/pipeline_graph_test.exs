@@ -1,7 +1,7 @@
 defmodule BroadwayDashboard.PipelineGraphTest do
   use ExUnit.Case, async: true
 
-  alias BroadwayDashboard.Counters
+  alias BroadwayDashboard.NewCounters
   alias BroadwayDashboard.PipelineGraph
 
   defmodule Forwarder do
@@ -23,6 +23,11 @@ defmodule BroadwayDashboard.PipelineGraphTest do
   end
 
   describe "build_layers/2" do
+    # TODO: idea
+    # has a thing called "topology workload"
+    # this is the topology structure, but with the workload (factor) of
+    # each group.
+    # Like this:
     test "new version - without batchers" do
       broadway = new_unique_name()
 
@@ -33,9 +38,10 @@ defmodule BroadwayDashboard.PipelineGraphTest do
         processors: [default: [concurrency: 3]]
       )
 
-      Counters.start!(broadway)
-
       topology = Broadway.topology(broadway)
+      counters = NewCounters.build(topology)
+
+      topology_workload = NewCounters.topology_workload(counters, topology)
 
       assert [
                [%{id: _prod_id, children: [_proc1, _proc2, _proc3], data: "prod_0"}],
@@ -44,7 +50,7 @@ defmodule BroadwayDashboard.PipelineGraphTest do
                  %{id: _proc_1, children: [], data: %{label: "proc_1", detail: 0}},
                  %{id: _proc_2, children: [], data: %{label: "proc_2", detail: 0}}
                ]
-             ] = PipelineGraph.build_layers(broadway, topology)
+             ] = PipelineGraph.build_layers(topology_workload)
     end
 
     test "new verion - with batchers" do
@@ -58,9 +64,10 @@ defmodule BroadwayDashboard.PipelineGraphTest do
         batchers: [default: [concurrency: 2], s3: [concurrency: 1]]
       )
 
-      Counters.start!(broadway)
-
       topology = Broadway.topology(broadway)
+      counters = NewCounters.build(topology)
+
+      topology_workload = NewCounters.topology_workload(counters, topology)
 
       assert [
                [%{id: prod_id, children: [proc_0, proc_1, proc_2], data: "prod_0"}],
@@ -98,7 +105,7 @@ defmodule BroadwayDashboard.PipelineGraphTest do
                  %{children: [], data: %{detail: 0, label: "proc_1"}, id: batch_proc_1},
                  %{children: [], data: %{detail: 0, label: "proc_0"}, id: batch_proc_s3}
                ]
-             ] = PipelineGraph.build_layers(broadway, topology)
+             ] = PipelineGraph.build_layers(topology_workload)
 
       assert prod_id == :"#{broadway}.Broadway.Producer_0"
 

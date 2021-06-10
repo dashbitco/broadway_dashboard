@@ -5,6 +5,8 @@ defmodule BroadwayDashboardTest do
   import Phoenix.LiveViewTest
   @endpoint Phoenix.LiveDashboardTest.Endpoint
 
+  alias BroadwayDashboard.Metrics
+
   test "menu_link/2" do
     link = "https://hexdocs.pm/broadway_dashboard"
 
@@ -71,7 +73,8 @@ defmodule BroadwayDashboardTest do
     assert_receive {:ack, ^ref, [_successful], []}
 
     # Ensure the page updates it's state
-    send(live.pid, {:refresh_stats, Demo.Pipeline})
+    server_name = Metrics.server_name(Demo.Pipeline)
+    send(server_name, :refresh)
 
     assert has_element?(live, ".banner-card-value", "1")
   end
