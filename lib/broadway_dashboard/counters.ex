@@ -5,7 +5,7 @@ defmodule BroadwayDashboard.Counters do
   #
   # It has a counter with two entries (for success and errors),
   # and an "atomics" with N-entries to store each stage "start",
-  # "end" and "work factor".
+  # "end" and "work workload".
   #
   # The "total" represents the size of stages in a pipeline.
   # So for example, if the pipeline has this config:
@@ -21,7 +21,7 @@ defmodule BroadwayDashboard.Counters do
   # The total of stages is 48 + 2, the "2" being the batchers itself.
   # So we have 50 stages in this pipeline.
   # Our atomics will have the size of 50 * 3, because we need
-  # to store the "start", "end" and "work factor" for each stage.
+  # to store the "start", "end" and "work workload" for each stage.
   #
   # The "batchers_positions" represents where each batcher is located
   # inside the "atomics". We do the following for the atomics positions:
@@ -34,7 +34,7 @@ defmodule BroadwayDashboard.Counters do
   #
   # This way we can say where each stage is located for the "start"
   # value. For the "end" value we simply add the "total" to the found
-  # position of start. And for the "work factor" we add the "total" again.
+  # position of start. And for the "work workload" we add the "total" again.
 
   defstruct stages: 0, counters: nil, atomics: nil, batchers_positions: %{}
 
@@ -93,7 +93,7 @@ defmodule BroadwayDashboard.Counters do
 
             workloads =
               for idx <- 0..(group.concurrency - 1) do
-                {:ok, value} = fetch_processor_processing_factor(counters, idx)
+                {:ok, value} = fetch_processor_workload(counters, idx)
                 value
               end
 
@@ -101,11 +101,11 @@ defmodule BroadwayDashboard.Counters do
 
           :batchers ->
             Enum.map(groups, fn group ->
-              {:ok, batcher_workload} = fetch_batcher_processing_factor(counters, group.batcher_key)
+              {:ok, batcher_workload} = fetch_batcher_workload(counters, group.batcher_key)
 
               workloads =
                 for idx <- 0..(group.concurrency - 1) do
-                  {:ok, value} = fetch_processor_processing_factor(counters, idx)
+                  {:ok, value} = fetch_processor_workload(counters, idx)
                   value
                 end
 
@@ -134,9 +134,9 @@ defmodule BroadwayDashboard.Counters do
     :atomics.put(counters.atomics, counters.stages + index + 1, end_time)
   end
 
-  def put_processor_processing_factor(%__MODULE__{} = counters, index, factor)
-      when valid_processor_input?(index, factor) do
-    :atomics.put(counters.atomics, counters.stages * 2 + index + 1, factor)
+  def put_processor_workload(%__MODULE__{} = counters, index, workload)
+      when valid_processor_input?(index, workload) do
+    :atomics.put(counters.atomics, counters.stages * 2 + index + 1, workload)
   end
 
   def fetch_processor_start(%__MODULE__{} = counters, index) when index >= 0 do
@@ -147,7 +147,7 @@ defmodule BroadwayDashboard.Counters do
     {:ok, :atomics.get(counters.atomics, counters.stages + index + 1)}
   end
 
-  def fetch_processor_processing_factor(%__MODULE__{} = counters, index) when index >= 0 do
+  def fetch_processor_workload(%__MODULE__{} = counters, index) when index >= 0 do
     {:ok, :atomics.get(counters.atomics, counters.stages * 2 + index + 1)}
   end
 
@@ -167,10 +167,10 @@ defmodule BroadwayDashboard.Counters do
     end
   end
 
-  def put_batcher_processing_factor(%__MODULE__{} = counters, batcher_key, factor)
-      when valid_batcher_input?(batcher_key, factor) do
+  def put_batcher_workload(%__MODULE__{} = counters, batcher_key, workload)
+      when valid_batcher_input?(batcher_key, workload) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
-      :atomics.put(counters.atomics, counters.stages * 2 + position, factor)
+      :atomics.put(counters.atomics, counters.stages * 2 + position, workload)
     end
   end
 
@@ -186,7 +186,7 @@ defmodule BroadwayDashboard.Counters do
     end
   end
 
-  def fetch_batcher_processing_factor(%__MODULE__{} = counters, batcher_key) do
+  def fetch_batcher_workload(%__MODULE__{} = counters, batcher_key) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
       {:ok, :atomics.get(counters.atomics, counters.stages * 2 + position)}
     end
@@ -206,9 +206,9 @@ defmodule BroadwayDashboard.Counters do
     end
   end
 
-  def put_batch_processor_processing_factor(%__MODULE__{} = counters, batcher_key, index, factor) do
+  def put_batch_processor_workload(%__MODULE__{} = counters, batcher_key, index, workload) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
-      :atomics.put(counters.atomics, counters.stages * 2 + position + index + 1, factor)
+      :atomics.put(counters.atomics, counters.stages * 2 + position + index + 1, workload)
     end
   end
 
@@ -224,7 +224,7 @@ defmodule BroadwayDashboard.Counters do
     end
   end
 
-  def fetch_batch_processor_processing_factor(%__MODULE__{} = counters, batcher_key, index) do
+  def fetch_batch_processor_workload(%__MODULE__{} = counters, batcher_key, index) do
     with {:ok, position} <- batcher_position(counters, batcher_key) do
       from = counters.stages * 2 + position + index + 1
       # IO.inspect(:atomics.get(counters.atomics, from - 2))

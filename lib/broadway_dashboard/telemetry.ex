@@ -72,10 +72,10 @@ defmodule BroadwayDashboard.Telemetry do
         {:ok, start_time} = Counters.fetch_processor_start(counters, metadata.index)
         {:ok, last_end_time} = Counters.fetch_processor_end(counters, metadata.index)
 
-        factor = calc_factor(start_time, last_end_time, measurements.duration)
+        workload = calc_workload(start_time, last_end_time, measurements.duration)
 
         :ok = Counters.put_processor_end(counters, metadata.index, measurements.time)
-        :ok = Counters.put_processor_processing_factor(counters, metadata.index, factor)
+        :ok = Counters.put_processor_workload(counters, metadata.index, workload)
 
         # Here we measure only because it can occur a failure or
         # we don't have batchers and we "Ack" in the processor.
@@ -90,10 +90,10 @@ defmodule BroadwayDashboard.Telemetry do
         {:ok, start_time} = Counters.fetch_batcher_start(counters, metadata.batcher_key)
         {:ok, last_end_time} = Counters.fetch_batcher_end(counters, metadata.batcher_key)
 
-        factor = calc_factor(start_time, last_end_time, measurements.duration)
+        workload = calc_workload(start_time, last_end_time, measurements.duration)
 
         :ok = Counters.put_batcher_end(counters, metadata.batcher_key, measurements.time)
-        :ok = Counters.put_batcher_processing_factor(counters, metadata.batcher_key, factor)
+        :ok = Counters.put_batcher_workload(counters, metadata.batcher_key, workload)
 
       :consumer ->
         key = metadata.batch_info.batcher
@@ -102,10 +102,10 @@ defmodule BroadwayDashboard.Telemetry do
         {:ok, start_time} = Counters.fetch_batch_processor_start(counters, key, index)
         {:ok, last_end_time} = Counters.fetch_batch_processor_end(counters, key, index)
 
-        factor = calc_factor(start_time, last_end_time, measurements.duration)
+        workload = calc_workload(start_time, last_end_time, measurements.duration)
 
         :ok = Counters.put_batch_processor_end(counters, key, index, measurements.time)
-        :ok = Counters.put_batch_processor_processing_factor(counters, key, index, factor)
+        :ok = Counters.put_batch_processor_workload(counters, key, index, workload)
 
         :ok =
           Counters.incr(
@@ -128,7 +128,7 @@ defmodule BroadwayDashboard.Telemetry do
   # Ignore events from other pipelines
   def handle_event(_, _, _, _), do: :ok
 
-  defp calc_factor(start_time, last_end_time, duration) do
+  defp calc_workload(start_time, last_end_time, duration) do
     idle_time = start_time - last_end_time
     round(duration / (idle_time + duration) * 100)
   end

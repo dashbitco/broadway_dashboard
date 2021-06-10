@@ -45,7 +45,9 @@ defmodule BroadwayDashboard.PipelineGraph do
     layer =
       case step do
         :producers ->
-          build_nodes(topology_workloads[:producers], "prod", previous_layer, show_factor?: false)
+          build_nodes(topology_workloads[:producers], "prod", previous_layer,
+            show_workload?: false
+          )
 
         :processors ->
           build_nodes(topology_workloads[:processors], "proc", previous_layer)
@@ -78,18 +80,18 @@ defmodule BroadwayDashboard.PipelineGraph do
   end
 
   defp build_nodes(stage_details, label_prefix, children_layer, opts \\ []) do
-    show_factor? = Keyword.get(opts, :show_factor?, true)
+    show_workload? = Keyword.get(opts, :show_workload?, true)
 
     for stage <- stage_details, i <- 0..(stage.concurrency - 1) do
       name = :"#{stage.name}_#{i}"
 
       data =
-        if show_factor? do
-          factor = Enum.at(stage.workloads, i)
+        if show_workload? do
+          workload = Enum.at(stage.workloads, i)
 
           %{
             label: "#{label_prefix}_#{i}",
-            detail: factor
+            detail: workload
           }
         else
           "#{label_prefix}_#{i}"

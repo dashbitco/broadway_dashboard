@@ -86,7 +86,7 @@ defmodule BroadwayDashboard.CountersTest do
     assert :atomics.get(counters.atomics, initial_pos + 40) == end_time
   end
 
-  test "put_processor_processing_factor/3 sets the processing factor of a processor" do
+  test "put_processor_workload/3 sets the processing workload of a processor" do
     topology = [
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: 40}],
@@ -95,16 +95,16 @@ defmodule BroadwayDashboard.CountersTest do
 
     counters = Counters.build(topology)
     initial_pos = counters.stages * 2
-    factor = 80
+    workload = 80
 
-    assert :ok = Counters.put_processor_processing_factor(counters, 0, factor)
-    assert :atomics.get(counters.atomics, initial_pos + 1) == factor
+    assert :ok = Counters.put_processor_workload(counters, 0, workload)
+    assert :atomics.get(counters.atomics, initial_pos + 1) == workload
 
-    assert :ok = Counters.put_processor_processing_factor(counters, 19, factor)
-    assert :atomics.get(counters.atomics, initial_pos + 20) == factor
+    assert :ok = Counters.put_processor_workload(counters, 19, workload)
+    assert :atomics.get(counters.atomics, initial_pos + 20) == workload
 
-    assert :ok = Counters.put_processor_processing_factor(counters, 39, factor)
-    assert :atomics.get(counters.atomics, initial_pos + 40) == factor
+    assert :ok = Counters.put_processor_workload(counters, 39, workload)
+    assert :atomics.get(counters.atomics, initial_pos + 40) == workload
   end
 
   test "get_processor_start/2 returns the start time of a processor" do
@@ -147,7 +147,7 @@ defmodule BroadwayDashboard.CountersTest do
     assert {:ok, ^end_time} = Counters.fetch_processor_end(counters, 39)
   end
 
-  test "get_processor_processing_factor/2 returns the end time of a processor" do
+  test "get_processor_workload/2 returns the end time of a processor" do
     topology = [
       producers: [%{name: :default, concurrency: 1}],
       processors: [%{name: :default, concurrency: 40}],
@@ -157,14 +157,14 @@ defmodule BroadwayDashboard.CountersTest do
     counters = Counters.build(topology)
     end_time = System.monotonic_time()
 
-    Counters.put_processor_processing_factor(counters, 0, end_time)
-    assert {:ok, ^end_time} = Counters.fetch_processor_processing_factor(counters, 0)
+    Counters.put_processor_workload(counters, 0, end_time)
+    assert {:ok, ^end_time} = Counters.fetch_processor_workload(counters, 0)
 
-    Counters.put_processor_processing_factor(counters, 19, end_time)
-    assert {:ok, ^end_time} = Counters.fetch_processor_processing_factor(counters, 19)
+    Counters.put_processor_workload(counters, 19, end_time)
+    assert {:ok, ^end_time} = Counters.fetch_processor_workload(counters, 19)
 
-    Counters.put_processor_processing_factor(counters, 39, end_time)
-    assert {:ok, ^end_time} = Counters.fetch_processor_processing_factor(counters, 39)
+    Counters.put_processor_workload(counters, 39, end_time)
+    assert {:ok, ^end_time} = Counters.fetch_processor_workload(counters, 39)
   end
 
   test "put_batcher_start/3 sets the start time for a batcher" do
@@ -219,7 +219,7 @@ defmodule BroadwayDashboard.CountersTest do
              Counters.put_batcher_end(counters, :sqs, end_time)
   end
 
-  test "put_batcher_processing_factor/3 sets the processing factor for a batcher" do
+  test "put_batcher_workload/3 sets the processing workload for a batcher" do
     proc_concurrency = 40
 
     topology = [
@@ -232,17 +232,17 @@ defmodule BroadwayDashboard.CountersTest do
     ]
 
     counters = Counters.build(topology)
-    factor = System.monotonic_time()
+    workload = System.monotonic_time()
 
-    assert :ok = Counters.put_batcher_processing_factor(counters, :default, factor)
-    assert :atomics.get(counters.atomics, counters.stages * 2 + proc_concurrency + 1) == factor
+    assert :ok = Counters.put_batcher_workload(counters, :default, workload)
+    assert :atomics.get(counters.atomics, counters.stages * 2 + proc_concurrency + 1) == workload
 
-    assert :ok = Counters.put_batcher_processing_factor(counters, :s3, factor)
+    assert :ok = Counters.put_batcher_workload(counters, :s3, workload)
     # This is 7 because it's 1 from default, + 5 batch processors from default, + 1 s3 batcher
-    assert :atomics.get(counters.atomics, counters.stages * 2 + proc_concurrency + 7) == factor
+    assert :atomics.get(counters.atomics, counters.stages * 2 + proc_concurrency + 7) == workload
 
     assert {:error, :batcher_position_not_found} =
-             Counters.put_batcher_processing_factor(counters, :sqs, factor)
+             Counters.put_batcher_workload(counters, :sqs, workload)
   end
 
   test "get_batcher_start/2 gets the start time for a batcher" do
@@ -291,7 +291,7 @@ defmodule BroadwayDashboard.CountersTest do
     assert {:error, :batcher_position_not_found} = Counters.fetch_batcher_end(counters, :sqs)
   end
 
-  test "get_batcher_processing_factor/3 gets the processing factor for a batcher" do
+  test "get_batcher_workload/3 gets the processing workload for a batcher" do
     proc_concurrency = 40
 
     topology = [
@@ -304,16 +304,15 @@ defmodule BroadwayDashboard.CountersTest do
     ]
 
     counters = Counters.build(topology)
-    factor = System.monotonic_time()
+    workload = System.monotonic_time()
 
-    Counters.put_batcher_processing_factor(counters, :default, factor)
-    assert {:ok, ^factor} = Counters.fetch_batcher_processing_factor(counters, :default)
+    Counters.put_batcher_workload(counters, :default, workload)
+    assert {:ok, ^workload} = Counters.fetch_batcher_workload(counters, :default)
 
-    Counters.put_batcher_processing_factor(counters, :s3, factor)
-    assert {:ok, ^factor} = Counters.fetch_batcher_processing_factor(counters, :s3)
+    Counters.put_batcher_workload(counters, :s3, workload)
+    assert {:ok, ^workload} = Counters.fetch_batcher_workload(counters, :s3)
 
-    assert {:error, :batcher_position_not_found} =
-             Counters.fetch_batcher_processing_factor(counters, :sqs)
+    assert {:error, :batcher_position_not_found} = Counters.fetch_batcher_workload(counters, :sqs)
   end
 
   test "put_batch_processor_start/4 puts the value" do
@@ -329,15 +328,15 @@ defmodule BroadwayDashboard.CountersTest do
     ]
 
     counters = Counters.build(topology)
-    factor = System.monotonic_time()
+    workload = System.monotonic_time()
 
-    Counters.put_batch_processor_start(counters, :default, 1, factor)
-    assert {:ok, ^factor} = Counters.fetch_batch_processor_start(counters, :default, 1)
+    Counters.put_batch_processor_start(counters, :default, 1, workload)
+    assert {:ok, ^workload} = Counters.fetch_batch_processor_start(counters, :default, 1)
 
-    Counters.put_batch_processor_start(counters, :s3, 3, factor)
-    assert {:ok, ^factor} = Counters.fetch_batch_processor_start(counters, :s3, 3)
+    Counters.put_batch_processor_start(counters, :s3, 3, workload)
+    assert {:ok, ^workload} = Counters.fetch_batch_processor_start(counters, :s3, 3)
 
     assert {:error, :batcher_position_not_found} =
-             Counters.fetch_batch_processor_processing_factor(counters, :sqs, 4)
+             Counters.fetch_batch_processor_workload(counters, :sqs, 4)
   end
 end
