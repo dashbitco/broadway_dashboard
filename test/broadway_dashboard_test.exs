@@ -26,14 +26,6 @@ defmodule BroadwayDashboardTest do
                %{}
              )
 
-    assert {:disabled, "Broadway pipelines", ^link} =
-             BroadwayDashboard.menu_link(
-               %{pipelines: :auto_discover},
-               %{}
-             )
-
-    {:ok, _broadway} = start_supervised({Demo.Pipeline, [broadway_name: new_unique_name()]})
-
     assert {:ok, "Broadway pipelines"} =
              BroadwayDashboard.menu_link(
                %{pipelines: :auto_discover},
@@ -61,9 +53,11 @@ defmodule BroadwayDashboardTest do
   end
 
   describe "auto discovery" do
-    test "redirects to home if no pipeline is alive and auto discover is enabled" do
-      assert {:error, {:live_redirect, %{to: "/dashboard/home"}}} =
-               live(build_conn(), "/dashboard/broadway_auto_discovery")
+    test "renders error if no pipeline is alive and auto discover is enabled" do
+      {:ok, live, _} = live(build_conn(), "/dashboard/broadway_auto_discovery")
+
+      rendered = render(live)
+      assert rendered =~ "There is no pipeline running"
     end
 
     test "redirects to the first running pipeline if no pipeline is provided" do

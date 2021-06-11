@@ -19,51 +19,51 @@ defmodule BroadwayDashboard do
 
   @impl true
   def init(opts) do
-    # In case no pipeline is passed in the router, we auto-discover them.
-    pipelines = with [] <- opts[:pipelines] || [], do: :auto_discover
+    pipelines = opts[:pipelines] || :auto_discover
 
     {:ok, %{pipelines: pipelines}, application: :broadway}
   end
 
   @impl true
   def menu_link(%{pipelines: pipelines}, _capabilities) do
-    pipelines = pipelines_or_auto_discover(pipelines)
-
-    case pipelines do
-      [] ->
-        {:disabled, @page_title, @disabled_link}
-
-      [_ | _] ->
-        {:ok, @page_title}
+    if pipelines == [] do
+      {:disabled, @page_title, @disabled_link}
+    else
+      {:ok, @page_title}
     end
   end
 
-  defp pipelines_or_auto_discover(pipeline_config) do
-    with :auto_discover <- pipeline_config, do: Broadway.all_running()
-  end
-
   defp pipelines_or_auto_discover(pipeline_config, node) do
-    case pipeline_config do
-      :auto_discover ->
-        with {:badrpc, _error} <- :rpc.call(node, Broadway, :all_running, []) do
-          raise "Unable to auto discover running broadway at node #{inspect(node)}. Check Broadway version."
-        end
+    if pipeline_config == :auto_discover do
+      with {:broadway, :ok} <- {:broadway, check_broadway_version(node)},
+           {:badrpc, _error} <- :rpc.call(node, Broadway, :all_running, []) do
+        {{:error, :cannot_list_running_pipelines}, []}
+      else
+        pipelines when is_list(pipelines) ->
+          {:ok, pipelines}
 
-      [_ | _] = pipelines ->
-        pipelines
+        {:broadway, {:error, _} = error} ->
+          {error, []}
+      end
+    else
+      {:ok, pipeline_config}
     end
   end
 
   @impl true
   def mount(params, %{pipelines: pipelines}, socket) do
-    pipelines = pipelines_or_auto_discover(pipelines, socket.assigns.page.node)
+    {auto_discover_result, pipelines} =
+      pipelines_or_auto_discover(pipelines, socket.assigns.page.node)
+
     socket = assign(socket, :pipelines, pipelines)
 
     nav = params["nav"]
-    [first_pipeline | _] = pipelines
+    nav = if nav && nav != "", do: nav
+
+    first_pipeline = List.first(pipelines)
 
     nav_pipeline =
-      if nav && nav != "" do
+      if nav do
         to_existing_atom_or_nil(nav)
       end
 
@@ -98,6 +98,18 @@ defmodule BroadwayDashboard do
         to = live_dashboard_path(socket, socket.assigns.page, nav: first_pipeline)
         {:ok, push_redirect(socket, to: to)}
 
+      pipelines == [] ->
+        error =
+          case auto_discover_result do
+            :ok ->
+              :no_pipelines_available
+
+            {:error, error} ->
+              error
+          end
+
+        {:ok, assign(socket, pipeline: nil, error: error)}
+
       true ->
         {:ok, assign(socket, pipeline: nil, error: :pipeline_not_found)}
     end
@@ -131,12 +143,19 @@ defmodule BroadwayDashboard do
 
   @impl true
   def render_page(assigns) do
-    items =
-      for name <- assigns.pipelines do
-        {name, name: format_nav_name(name), render: render_pipeline(assigns), method: :redirect}
-      end
+    if assigns.pipelines == [] do
+      render_error(assigns)
+    else
+      items =
+        for name <- assigns.pipelines do
+          {name,
+           name: format_nav_name(name),
+           render: render_pipeline_or_error(assigns),
+           method: :redirect}
+        end
 
-    nav_bar(items: items)
+      nav_bar(items: items)
+    end
   end
 
   defp format_nav_name(pipeline_name) do
@@ -145,31 +164,12 @@ defmodule BroadwayDashboard do
     name
   end
 
-  defp render_pipeline(%{error: _} = assigns) do
-    error_message =
-      case assigns.error do
-        :pipeline_not_found ->
-          "This pipeline is not available for this node."
-
-        :pipeline_is_not_running ->
-          "This pipeline is not running on this node."
-
-        :version_is_not_enough ->
-          "Broadway is outdated on remote node. Minimum version required is #{@minimum_broadway_version}"
-
-        {:badrpc, _} ->
-          "Could not send request to node. Try again later."
-      end
-
-    row(
-      components: [
-        columns(
-          components: [
-            card(value: error_message)
-          ]
-        )
-      ]
-    )
+  defp render_pipeline_or_error(assigns) do
+    if assigns[:error] do
+      render_error(assigns)
+    else
+      render_pipeline(assigns)
+    end
   end
 
   defp render_pipeline(assigns) do
@@ -183,6 +183,42 @@ defmodule BroadwayDashboard do
         columns(
           components: [
             pipeline_graph_row(assigns.layers)
+          ]
+        )
+      ]
+    )
+  end
+
+  defp render_error(assigns) do
+    error_message =
+      case assigns.error do
+        :pipeline_not_found ->
+          "This pipeline is not available for this node."
+
+        :pipeline_is_not_running ->
+          "This pipeline is not running on this node."
+
+        :broadway_is_not_available ->
+          "Broadway is not available on remote node."
+
+        :version_is_not_enough ->
+          "Broadway is outdated on remote node. Minimum version required is #{@minimum_broadway_version}"
+
+        :no_pipelines_available ->
+          "There is no pipeline running on this node."
+
+        :cannot_list_running_pipelines ->
+          "Could not list running pipelines at remote node. Please try again later."
+
+        {:badrpc, _} ->
+          "Could not send request to node. Try again later."
+      end
+
+    row(
+      components: [
+        columns(
+          components: [
+            card(value: error_message)
           ]
         )
       ]
@@ -294,7 +330,7 @@ defmodule BroadwayDashboard do
         end
 
       nil ->
-        {:error, :broadway_is_not_loaded}
+        {:error, :broadway_is_not_available}
     end
   end
 end
