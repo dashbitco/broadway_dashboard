@@ -74,10 +74,6 @@ defmodule BroadwayDashboard do
         pipeline = nav_pipeline && Enum.find(pipelines, fn name -> name == nav_pipeline end)
 
         cond do
-          nav_pipeline && is_nil(pipeline) ->
-            to = live_dashboard_path(socket, socket.assigns.page, nav: hd(pipelines))
-            {:ok, push_redirect(socket, to: to)}
-
           pipeline ->
             node = socket.assigns.page.node
 
