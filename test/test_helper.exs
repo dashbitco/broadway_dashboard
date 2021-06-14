@@ -12,7 +12,7 @@ defmodule Demo.Pipeline do
 
   def start_link(opts) do
     Broadway.start_link(__MODULE__,
-      name: __MODULE__,
+      name: opts[:broadway_name] || __MODULE__,
       producer: [
         module: {Broadway.DummyProducer, opts},
         concurrency: 1
@@ -87,7 +87,8 @@ defmodule Phoenix.LiveDashboardTest.Router do
     live_dashboard("/dashboard",
       metrics: Phoenix.LiveDashboardTest.Telemetry,
       additional_pages: [
-        broadway: {BroadwayDashboard, pipelines: [Demo.Pipeline, MyDummy, MyDummyOutdated]}
+        broadway: {BroadwayDashboard, pipelines: [Demo.Pipeline, MyDummy, MyDummyOutdated]},
+        broadway_auto_discovery: BroadwayDashboard
       ]
     )
   end

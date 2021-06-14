@@ -19,67 +19,98 @@ defmodule BroadwayDashboard do
 
   @impl true
   def init(opts) do
-    pipelines = Keyword.get(opts, :pipelines, [])
+    pipelines = opts[:pipelines] || :auto_discover
 
     {:ok, %{pipelines: pipelines}, application: :broadway}
   end
 
   @impl true
   def menu_link(%{pipelines: pipelines}, _capabilities) do
-    case pipelines do
-      [] ->
-        {:disabled, @page_title, @disabled_link}
+    if pipelines == [] do
+      {:disabled, @page_title, @disabled_link}
+    else
+      {:ok, @page_title}
+    end
+  end
 
-      [_ | _] ->
-        {:ok, @page_title}
+  defp pipelines_or_auto_discover(pipeline_config, node) do
+    cond do
+      pipeline_config == [] ->
+        {:error, :no_pipelines_available}
+
+      is_list(pipeline_config) ->
+        {:ok, pipeline_config}
+
+      pipeline_config == :auto_discover ->
+        case check_broadway_version(node) do
+          :ok ->
+            case :rpc.call(node, Broadway, :all_running, []) do
+              [_ | _] = pipelines ->
+                {:ok, pipelines}
+
+              [] ->
+                {:error, :no_pipelines_available}
+
+              {:badrpc, _error} ->
+                {:error, :cannot_list_running_pipelines}
+            end
+
+          {:error, _} = error ->
+            error
+        end
+
+      true ->
+        {:error, :no_pipelines_available}
     end
   end
 
   @impl true
   def mount(params, %{pipelines: pipelines}, socket) do
-    socket = assign(socket, :pipelines, pipelines)
+    case pipelines_or_auto_discover(pipelines, socket.assigns.page.node) do
+      {:ok, pipelines} ->
+        socket = assign(socket, :pipelines, pipelines)
 
-    nav = params["nav"]
-    [first_pipeline | _] = pipelines
+        nav_pipeline = nav_pipeline(params)
+        pipeline = nav_pipeline && Enum.find(pipelines, fn name -> name == nav_pipeline end)
 
-    nav_pipeline =
-      if nav && nav != "" do
-        to_existing_atom_or_nil(nav)
-      end
+        cond do
+          pipeline ->
+            node = socket.assigns.page.node
 
-    pipeline = nav_pipeline && Enum.find(pipelines, fn name -> name == nav_pipeline end)
+            with :ok <- check_socket_connection(socket),
+                 :ok <- check_broadway_version(node),
+                 {:ok, initial_payload} <- Metrics.listen(node, self(), pipeline) do
+              stats = %{
+                successful: initial_payload.successful,
+                failed: initial_payload.failed,
+                throughput_successful: 0,
+                throughput_failed: 0
+              }
 
-    cond do
-      nav && is_nil(pipeline) ->
-        to = live_dashboard_path(socket, socket.assigns.page, nav: first_pipeline)
-        {:ok, push_redirect(socket, to: to)}
+              layers = PipelineGraph.build_layers(initial_payload.topology_workload)
 
-      pipeline && connected?(socket) ->
-        node = socket.assigns.page.node
+              {:ok, assign(socket, pipeline: pipeline, stats: stats, layers: layers)}
+            else
+              {:error, error} ->
+                {:ok, assign(socket, pipeline: nil, error: error)}
+            end
 
-        with :ok <- check_broadway_version(node),
-             {:ok, initial_payload} <- Metrics.listen(node, self(), pipeline) do
-          stats = %{
-            successful: initial_payload.successful,
-            failed: initial_payload.failed,
-            throughput_successful: 0,
-            throughput_failed: 0
-          }
-
-          layers = PipelineGraph.build_layers(initial_payload.topology_workload)
-
-          {:ok, assign(socket, pipeline: pipeline, stats: stats, layers: layers)}
-        else
-          {:error, error} ->
-            {:ok, assign(socket, pipeline: nil, error: error)}
+          true ->
+            to = live_dashboard_path(socket, socket.assigns.page, nav: hd(pipelines))
+            {:ok, push_redirect(socket, to: to)}
         end
 
-      first_pipeline && is_nil(nav_pipeline) ->
-        to = live_dashboard_path(socket, socket.assigns.page, nav: first_pipeline)
-        {:ok, push_redirect(socket, to: to)}
+      {:error, error} ->
+        {:ok, assign(socket, pipeline: nil, error: error)}
+    end
+  end
 
-      true ->
-        {:ok, assign(socket, pipeline: nil, error: :pipeline_not_found)}
+  defp nav_pipeline(params) do
+    nav = params["nav"]
+    nav = if nav && nav != "", do: nav
+
+    if nav do
+      to_existing_atom_or_nil(nav)
     end
   end
 
@@ -87,6 +118,14 @@ defmodule BroadwayDashboard do
     String.to_existing_atom(nav)
   rescue
     ArgumentError -> nil
+  end
+
+  def check_socket_connection(socket) do
+    if connected?(socket) do
+      :ok
+    else
+      {:error, :connection_is_not_available}
+    end
   end
 
   @impl true
@@ -111,12 +150,19 @@ defmodule BroadwayDashboard do
 
   @impl true
   def render_page(assigns) do
-    items =
-      for name <- assigns.pipelines do
-        {name, name: format_nav_name(name), render: render_pipeline(assigns), method: :redirect}
-      end
+    if assigns[:error] do
+      render_error(assigns)
+    else
+      items =
+        for name <- assigns.pipelines do
+          {name,
+           name: format_nav_name(name),
+           render: fn -> render_pipeline_or_error(assigns) end,
+           method: :redirect}
+        end
 
-    nav_bar(items: items)
+      nav_bar(items: items)
+    end
   end
 
   defp format_nav_name(pipeline_name) do
@@ -125,31 +171,12 @@ defmodule BroadwayDashboard do
     name
   end
 
-  defp render_pipeline(%{error: _} = assigns) do
-    error_message =
-      case assigns.error do
-        :pipeline_not_found ->
-          "This pipeline is not available for this node."
-
-        :pipeline_is_not_running ->
-          "This pipeline is not running on this node."
-
-        :version_is_not_enough ->
-          "Broadway is outdated on remote node. Minimum version required is #{@minimum_broadway_version}"
-
-        {:badrpc, _} ->
-          "Could not send request to node. Try again later."
-      end
-
-    row(
-      components: [
-        columns(
-          components: [
-            card(value: error_message)
-          ]
-        )
-      ]
-    )
+  defp render_pipeline_or_error(assigns) do
+    if assigns[:error] do
+      render_error(assigns)
+    else
+      render_pipeline(assigns)
+    end
   end
 
   defp render_pipeline(assigns) do
@@ -163,6 +190,45 @@ defmodule BroadwayDashboard do
         columns(
           components: [
             pipeline_graph_row(assigns.layers)
+          ]
+        )
+      ]
+    )
+  end
+
+  defp render_error(assigns) do
+    error_message =
+      case assigns.error do
+        :connection_is_not_available ->
+          "Dashboard is not connected yet."
+
+        :pipeline_not_found ->
+          "This pipeline is not available for this node."
+
+        :pipeline_is_not_running ->
+          "This pipeline is not running on this node."
+
+        :broadway_is_not_available ->
+          "Broadway is not available on remote node."
+
+        :version_is_not_enough ->
+          "Broadway is outdated on remote node. Minimum version required is #{@minimum_broadway_version}"
+
+        :no_pipelines_available ->
+          "There is no pipeline running on this node."
+
+        :cannot_list_running_pipelines ->
+          "Could not list running pipelines at remote node. Please try again later."
+
+        {:badrpc, _} ->
+          "Could not send request to node. Try again later."
+      end
+
+    row(
+      components: [
+        columns(
+          components: [
+            card(value: error_message)
           ]
         )
       ]
@@ -274,7 +340,7 @@ defmodule BroadwayDashboard do
         end
 
       nil ->
-        {:error, :broadway_is_not_loaded}
+        {:error, :broadway_is_not_available}
     end
   end
 end

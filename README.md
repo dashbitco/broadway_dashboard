@@ -23,10 +23,18 @@ live_dashboard "/dashboard",
   additional_pages: [
     broadway: {BroadwayDashboard, pipelines: [MyBroadway]}
   ]
-
 ```
 
 The `:pipelines` option accept pipeline names (the `:name` option of your Broadway).
+By ommiting the `:pipelines` option, `BroadwayDashboard` will try to autodiscover your pipelines.
+
+```elixir
+live_dashboard "/dashboard",
+  additional_pages: [
+    broadway: BroadwayDashboard
+  ]
+```
+
 Once configured, you will be able to access the `BroadwayDashboard` at `/dashboard/broadway`.
 
 ## Distribution
