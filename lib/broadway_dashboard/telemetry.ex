@@ -18,8 +18,8 @@ defmodule BroadwayDashboard.Telemetry do
       [:broadway, :processor, :message, :exception],
       [:broadway, :batcher, :start],
       [:broadway, :batcher, :stop],
-      [:broadway, :consumer, :start],
-      [:broadway, :consumer, :stop]
+      [:broadway, :batch_processor, :start],
+      [:broadway, :batch_processor, :stop]
     ]
 
     :telemetry.attach_many({__MODULE__, parent}, events, &handle_event/4, {pipeline, counters})
@@ -41,21 +41,21 @@ defmodule BroadwayDashboard.Telemetry do
         %{topology_name: pipeline} = metadata,
         {pipeline, counters}
       )
-      when stage_layer in [:processor, :batcher, :consumer] do
+      when stage_layer in [:processor, :batcher, :batch_processor] do
     case stage_layer do
       :processor ->
-        :ok = Counters.put_processor_start(counters, metadata.index, measurements.time)
+        :ok = Counters.put_processor_start(counters, metadata.index, measurements.system_time)
 
       :batcher ->
-        :ok = Counters.put_batcher_start(counters, metadata.batcher_key, measurements.time)
+        :ok = Counters.put_batcher_start(counters, metadata.batcher_key, measurements.system_time)
 
-      :consumer ->
+      :batch_processor ->
         :ok =
           Counters.put_batch_processor_start(
             counters,
             metadata.batch_info.batcher,
             metadata.index,
-            measurements.time
+            measurements.system_time
           )
     end
   end
@@ -66,7 +66,7 @@ defmodule BroadwayDashboard.Telemetry do
         %{topology_name: pipeline} = metadata,
         {pipeline, counters}
       )
-      when stage_layer in [:processor, :batcher, :consumer] do
+      when stage_layer in [:processor, :batcher, :batch_processor] do
     case stage_layer do
       :processor ->
         {:ok, start_time} = Counters.fetch_processor_start(counters, metadata.index)
@@ -74,7 +74,9 @@ defmodule BroadwayDashboard.Telemetry do
 
         workload = calc_workload(start_time, last_end_time, measurements.duration)
 
-        :ok = Counters.put_processor_end(counters, metadata.index, measurements.time)
+        end_system_time = start_time + measurements.duration
+
+        :ok = Counters.put_processor_end(counters, metadata.index, end_system_time)
         :ok = Counters.put_processor_workload(counters, metadata.index, workload)
 
         # Here we measure only because it can occur a failure or
@@ -92,10 +94,12 @@ defmodule BroadwayDashboard.Telemetry do
 
         workload = calc_workload(start_time, last_end_time, measurements.duration)
 
-        :ok = Counters.put_batcher_end(counters, metadata.batcher_key, measurements.time)
+        end_system_time = start_time + measurements.duration
+
+        :ok = Counters.put_batcher_end(counters, metadata.batcher_key, end_system_time)
         :ok = Counters.put_batcher_workload(counters, metadata.batcher_key, workload)
 
-      :consumer ->
+      :batch_processor ->
         key = metadata.batch_info.batcher
         index = metadata.index
 
@@ -104,7 +108,9 @@ defmodule BroadwayDashboard.Telemetry do
 
         workload = calc_workload(start_time, last_end_time, measurements.duration)
 
-        :ok = Counters.put_batch_processor_end(counters, key, index, measurements.time)
+        end_system_time = start_time + measurements.duration
+
+        :ok = Counters.put_batch_processor_end(counters, key, index, end_system_time)
         :ok = Counters.put_batch_processor_workload(counters, key, index, workload)
 
         :ok =
