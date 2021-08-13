@@ -1,5 +1,6 @@
 defmodule BroadwayDashboard.CountersTest do
   use ExUnit.Case, async: true
+  use ExUnitProperties
 
   alias BroadwayDashboard.Counters
 
@@ -338,6 +339,74 @@ defmodule BroadwayDashboard.CountersTest do
 
     assert {:error, :batcher_position_not_found} =
              Counters.fetch_batch_processor_workload(counters, :sqs, 4)
+  end
+
+  property "the setters never conflict" do
+    topology = [
+      producers: [%{name: :default, concurrency: 1}],
+      processors: [%{name: :default, concurrency: 30}],
+      batchers: [
+        %{name: :default, batcher_key: :default, concurrency: 5},
+        %{name: :s3, batcher_key: :s3, concurrency: 10}
+      ]
+    ]
+
+    counters = Counters.build(topology)
+
+    funs =
+      expand_args([
+        {:fetch_processor_start, :put_processor_start, [0..29]},
+        {:fetch_processor_end, :put_processor_end, [0..29]},
+        {:fetch_processor_workload, :put_processor_workload, [0..29]},
+
+        # default
+        {:fetch_batcher_start, :put_batcher_start, [:default]},
+        {:fetch_batcher_end, :put_batcher_end, [:default]},
+        {:fetch_batcher_workload, :put_batcher_workload, [:default]},
+
+        # s3
+        {:fetch_batcher_start, :put_batcher_start, [:s3]},
+        {:fetch_batcher_end, :put_batcher_end, [:s3]},
+        {:fetch_batcher_workload, :put_batcher_workload, [:s3]},
+
+        # default batch processors
+        {:fetch_batch_processor_start, :put_batch_processor_start, [:default, 0..4]},
+        {:fetch_batch_processor_end, :put_batch_processor_end, [:default, 0..4]},
+        {:fetch_batch_processor_workload, :put_batch_processor_workload, [:default, 0..4]},
+
+        # s3 batch processors
+        {:fetch_batch_processor_start, :put_batch_processor_start, [:s3, 0..9]},
+        {:fetch_batch_processor_end, :put_batch_processor_end, [:s3, 0..9]},
+        {:fetch_batch_processor_workload, :put_batch_processor_workload, [:s3, 0..9]}
+      ])
+
+    assert counters.stages * 3 == length(funs)
+
+    check all values <- uniq_list_of(integer(10..10_000), length: length(funs)) do
+      counters = Counters.build(topology)
+
+      for {value, {getter, setter, args}} <- Enum.zip(values, Enum.shuffle(funs)) do
+        args = [counters | args]
+        assert {:ok, 0} = apply(Counters, getter, args)
+
+        assert :ok = apply(Counters, setter, args ++ [value])
+
+        assert {:ok, ^value} = apply(Counters, getter, args)
+      end
+    end
+  end
+
+  defp expand_args(functions) do
+    Enum.flat_map(functions, fn fun ->
+      {getter, setter, args} = fun
+      [maybe_range | args] = Enum.reverse(args)
+
+      if match?(%Range{}, maybe_range) do
+        for i <- maybe_range, do: {getter, setter, Enum.reverse([i | args])}
+      else
+        [fun]
+      end
+    end)
   end
 
   test "topology_workload/2 builds the workload of a topology" do
