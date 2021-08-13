@@ -44,6 +44,7 @@ defmodule BroadwayDashboard do
       pipeline_config == :auto_discover ->
         case check_broadway_version(node) do
           :ok ->
+            # TODO: fix case when pids are returned
             case :rpc.call(node, Broadway, :all_running, []) do
               [_ | _] = pipelines ->
                 {:ok, pipelines}
