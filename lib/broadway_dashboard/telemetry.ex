@@ -135,7 +135,11 @@ defmodule BroadwayDashboard.Telemetry do
   def handle_event(_, _, _, _), do: :ok
 
   defp calc_workload(start_time, last_end_time, duration) do
-    idle_time = start_time - last_end_time
-    round(duration / (idle_time + duration) * 100)
+    if duration > 0 do
+      idle_time = start_time - last_end_time
+      round(duration / (idle_time + duration) * 100)
+    else
+      0
+    end
   end
 end
