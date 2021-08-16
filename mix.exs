@@ -27,7 +27,7 @@ defmodule BroadwayDashboard.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:phoenix_live_dashboard, github: "phoenixframework/phoenix_live_dashboard"},
+      {:phoenix_live_dashboard, "~> 0.5.0"},
       {:broadway, github: "dashbitco/broadway"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:plug_cowboy, "~> 2.0", only: :dev},
