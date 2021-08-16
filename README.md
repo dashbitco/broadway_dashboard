@@ -13,6 +13,8 @@ It works as an additional page for the [`Phoenix LiveDashboard`](https://hexdocs
 You can inspect pipelines on remote nodes that are not running `BroadwayDashboard` too.
 See [Distribution](#distribution) for details.
 
+![Broadway Dashboard](./priv/static/broadway-dashboard-01.gif)
+
 ## Integration with Phoenix Live Dashboard
 
 You can add this page to your Phoenix Live Dashboard by adding as a page in
