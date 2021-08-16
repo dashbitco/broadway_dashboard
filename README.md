@@ -8,7 +8,7 @@
 pipelines. It provides some insights about performance and errors for
 your running pipelines.
 
-It works as an additional page for the [`Phoenix Live Dashboard`](https://hexdocs.pm/phoenix_live_dashboard).
+It works as an additional page for the [`Phoenix LiveDashboard`](https://hexdocs.pm/phoenix_live_dashboard).
 
 You can inspect pipelines on remote nodes that are not running `BroadwayDashboard` too.
 See [Distribution](#distribution) for details.
