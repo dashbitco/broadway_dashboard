@@ -42,26 +42,31 @@ defmodule BroadwayDashboard do
         {:ok, pipeline_config}
 
       pipeline_config == :auto_discover ->
-        case check_broadway_version(node) do
-          :ok ->
-            # TODO: fix case when pids are returned
-            case :rpc.call(node, Broadway, :all_running, []) do
-              [_ | _] = pipelines ->
-                {:ok, pipelines}
-
-              [] ->
-                {:error, :no_pipelines_available}
-
-              {:badrpc, _error} ->
-                {:error, :cannot_list_running_pipelines}
-            end
-
-          {:error, _} = error ->
-            error
+        with :ok <- check_broadway_version(node) do
+          running_pipelines(node)
         end
 
       true ->
         {:error, :no_pipelines_available}
+    end
+  end
+
+  defp running_pipelines(node) do
+    case :rpc.call(node, Broadway, :all_running, []) do
+      [_ | _] = pipelines ->
+        pipelines_names = Enum.filter(pipelines, &is_atom/1)
+
+        if length(pipelines_names) > 0 do
+          {:ok, pipelines_names}
+        else
+          {:error, :no_pipelines_available}
+        end
+
+      [] ->
+        {:error, :no_pipelines_available}
+
+      {:badrpc, _error} ->
+        {:error, :cannot_list_running_pipelines}
     end
   end
 

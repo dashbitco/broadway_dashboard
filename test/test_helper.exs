@@ -52,6 +52,17 @@ defmodule Demo.Pipeline do
   end
 end
 
+defmodule UsesRegistry do
+  use Broadway
+
+  def handle_message(_, message, _), do: message
+  def handle_batch(_, messages, _, _), do: messages
+
+  def process_name({:via, Registry, {registry, id}}, base_name) do
+    {:via, Registry, {registry, {id, base_name}}}
+  end
+end
+
 defmodule Phoenix.LiveDashboardTest.ErrorView do
   use Phoenix.View, root: "test/templates"
 
