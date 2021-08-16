@@ -39,7 +39,7 @@ Once configured, you will be able to access the `BroadwayDashboard` at `/dashboa
 
 ## Distribution
 
-**Phoenix Live Dashboard** works with distribution out of the box, and it's not different
+**Phoenix LiveDashboard** works with distribution out of the box, and it's not different
 with **Broadway Dashboard**! You can inspect your pipelines that are running on connected nodes.
 
 You can also inspect pipelines from nodes that are not running the same system of
@@ -61,7 +61,7 @@ def deps do
 end
 ```
 
-After that, proceed with instructions described in **Integration with Phoenix Live Dashboard** above.
+After that, proceed with instructions described in **Integration with Phoenix LiveDashboard** above.
 
 ## Acknowledgment
 
