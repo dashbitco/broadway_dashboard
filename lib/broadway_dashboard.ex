@@ -53,17 +53,11 @@ defmodule BroadwayDashboard do
 
   defp running_pipelines(node) do
     case :rpc.call(node, Broadway, :all_running, []) do
-      [_ | _] = pipelines ->
-        pipelines_names = Enum.filter(pipelines, &is_atom/1)
-
-        if length(pipelines_names) > 0 do
-          {:ok, pipelines_names}
-        else
-          {:error, :no_pipelines_available}
+      pipelines when is_list(pipelines) ->
+        case Enum.filter(pipelines, &is_atom/1) do
+          [] -> {:error, :no_pipelines_available}
+          pipelines_names -> {:ok, pipelines_names}
         end
-
-      [] ->
-        {:error, :no_pipelines_available}
 
       {:badrpc, _error} ->
         {:error, :cannot_list_running_pipelines}
