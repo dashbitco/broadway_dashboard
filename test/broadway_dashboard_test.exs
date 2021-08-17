@@ -82,6 +82,30 @@ defmodule BroadwayDashboardTest do
       assert rendered =~ "Throughput"
       assert rendered =~ "All time"
     end
+
+    test "renders error if auto discover is enabled but pipeline is registered using via" do
+      {:ok, _registry} = start_supervised({Registry, keys: :unique, name: MyRegistry})
+      name = via_tuple(:broadway)
+
+      {:ok, _broadway} =
+        Broadway.start_link(UsesRegistry,
+          name: name,
+          context: %{test_pid: self()},
+          producer: [
+            module: {Broadway.DummyProducer, []},
+            rate_limiting: [allowed_messages: 1, interval: 5000]
+          ],
+          processors: [default: []],
+          batchers: [default: []]
+        )
+
+      {:ok, live, _} = live(build_conn(), "/dashboard/broadway_auto_discovery")
+
+      rendered = render(live)
+      assert rendered =~ "There is no pipeline running"
+    end
+
+    defp via_tuple(name), do: {:via, Registry, {MyRegistry, name}}
   end
 
   test "shows the pipeline" do
