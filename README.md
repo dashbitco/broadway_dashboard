@@ -15,9 +15,9 @@ See [Distribution](#distribution) for details.
 
 ![Broadway Dashboard](https://raw.githubusercontent.com/dashbitco/broadway_dashboard/4da2a5f388a7579d41b63803652796c106b74785/priv/static/broadway-dashboard-01.gif)
 
-## Integration with Phoenix Live Dashboard
+## Integration with Phoenix LiveDashboard
 
-You can add this page to your Phoenix Live Dashboard by adding as a page in
+You can add this page to your Phoenix LiveDashboard by adding as a page in
 the `live_dashboard` macro at your router file.
 
 ```elixir
@@ -49,7 +49,7 @@ your dashboard. This is possible because we "copy" the essential parts of this
 tool to the remote node when it's not running `BroadwayDashboard`. We stop the tracking
 once the node that started it is disconnected.
 
-<!-- MDOC -->
+<!-- MDOC !-->
 
 ## Installation
 

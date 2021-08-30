@@ -46,7 +46,7 @@ defmodule BroadwayDashboard.Metrics do
     if Process.whereis(name) do
       {:ok, name}
     else
-      with {:ok, _} <- start(pipeline: pipeline, name: name) do
+      with {:ok, _pid} <- start(pipeline: pipeline, name: name) do
         {:ok, name}
       end
     end
@@ -59,13 +59,16 @@ defmodule BroadwayDashboard.Metrics do
 
       nil ->
         with :ok <- Teleporter.teleport_metrics_code(target_node),
-             pid when is_pid(pid) <-
+             {:ok, _pid} <-
                :rpc.call(target_node, __MODULE__, :start, [
                  [pipeline: pipeline, name: name]
                ]) do
           {:ok, {name, target_node}}
         else
-          _ ->
+          {:error, {:already_started, _pid}} ->
+            {:ok, {name, target_node}}
+
+          _error ->
             {:error, :not_able_to_start_remotely}
         end
 

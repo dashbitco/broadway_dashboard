@@ -11,9 +11,8 @@ defmodule BroadwayDashboard do
 
   # We check the Broadway version installed on remote nodes.
   # This should match mix.exs.
-  @minimum_broadway_version "0.7.0-dev"
+  @minimum_broadway_version "1.0.0"
 
-  # TODO: update link
   @disabled_link "https://hexdocs.pm/broadway_dashboard"
   @page_title "Broadway pipelines"
 
@@ -120,7 +119,7 @@ defmodule BroadwayDashboard do
     ArgumentError -> nil
   end
 
-  def check_socket_connection(socket) do
+  defp check_socket_connection(socket) do
     if connected?(socket) do
       :ok
     else
@@ -219,6 +218,9 @@ defmodule BroadwayDashboard do
 
         :cannot_list_running_pipelines ->
           "Could not list running pipelines at remote node. Please try again later."
+
+        :not_able_to_start_remotely ->
+          "Could not start the metrics server remotely. Please try again later."
 
         {:badrpc, _} ->
           "Could not send request to node. Try again later."

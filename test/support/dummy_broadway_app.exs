@@ -1,7 +1,7 @@
 # This file is a self contained Broadway application.
 # It is used in integration tests for distribution
 # testing.
-Mix.install([:broadway])
+Mix.install(broadway: "~> 1.0")
 
 defmodule MyDummy do
   use Broadway

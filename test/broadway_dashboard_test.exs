@@ -84,7 +84,7 @@ defmodule BroadwayDashboardTest do
     end
 
     test "renders error if auto discover is enabled but pipeline is registered using via" do
-      {:ok, _registry} = start_supervised({Registry, keys: :unique, name: MyRegistry})
+      {:ok, registry} = Registry.start_link(keys: :unique, name: MyRegistry)
       name = via_tuple(:broadway)
 
       {:ok, _broadway} =
@@ -103,6 +103,8 @@ defmodule BroadwayDashboardTest do
 
       rendered = render(live)
       assert rendered =~ "There is no pipeline running"
+
+      Process.exit(registry, :normal)
     end
 
     defp via_tuple(name), do: {:via, Registry, {MyRegistry, name}}
