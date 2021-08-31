@@ -28,7 +28,7 @@ live_dashboard "/dashboard",
 ```
 
 The `:pipelines` option accept pipeline names (the `:name` option of your Broadway).
-By ommiting the `:pipelines` option, `BroadwayDashboard` will try to autodiscover your pipelines.
+By omitting the `:pipelines` option, `BroadwayDashboard` will try to autodiscover your pipelines.
 
 ```elixir
 live_dashboard "/dashboard",
