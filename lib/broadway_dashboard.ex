@@ -6,7 +6,7 @@ defmodule BroadwayDashboard do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
-  alias BroadwayDashboard.{Metrics, PipelineGraph, NavBarComponent}
+  alias BroadwayDashboard.{Metrics, PipelineGraph}
 
   # We check the Broadway version installed on remote nodes.
   # This should match mix.exs.
@@ -144,12 +144,10 @@ defmodule BroadwayDashboard do
       items =
         for name <- assigns.pipelines do
           name = inspect(name)
-
           {name, name: name, render: fn -> render_pipeline_or_error(assigns) end}
         end
 
-      assigns = NavBarComponent.normalize_params(%{items: items})
-      {NavBarComponent, assigns}
+      nav_bar(items: items)
     end
   end
 

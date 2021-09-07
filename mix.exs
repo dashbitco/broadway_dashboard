@@ -30,7 +30,7 @@ defmodule BroadwayDashboard.MixProject do
   defp deps do
     [
       {:broadway, "~> 1.0"},
-      {:phoenix_live_dashboard, "~> 0.5.0"},
+      {:phoenix_live_dashboard, "~> 0.5.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:plug_cowboy, "~> 2.0", only: :dev},
       {:jason, "~> 1.0", only: [:dev, :test, :docs]},
