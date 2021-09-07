@@ -58,7 +58,7 @@ Add the following to your `mix.exs` and run mix `deps.get`:
 ```elixir
 def deps do
   [
-    {:broadway_dashboard, "~> 0.1.0"}
+    {:broadway_dashboard, "~> 0.2.0"}
   ]
 end
 ```
