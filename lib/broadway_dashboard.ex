@@ -6,8 +6,7 @@ defmodule BroadwayDashboard do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
-  alias BroadwayDashboard.Metrics
-  alias BroadwayDashboard.PipelineGraph
+  alias BroadwayDashboard.{Metrics, PipelineGraph}
 
   # We check the Broadway version installed on remote nodes.
   # This should match mix.exs.
@@ -52,11 +51,11 @@ defmodule BroadwayDashboard do
 
   defp running_pipelines(node) do
     case :rpc.call(node, Broadway, :all_running, []) do
+      [] ->
+        {:error, :no_pipelines_available}
+
       pipelines when is_list(pipelines) ->
-        case Enum.filter(pipelines, &is_atom/1) do
-          [] -> {:error, :no_pipelines_available}
-          pipelines_names -> {:ok, pipelines_names}
-        end
+        {:ok, pipelines}
 
       {:badrpc, _error} ->
         {:error, :cannot_list_running_pipelines}
@@ -68,9 +67,7 @@ defmodule BroadwayDashboard do
     case pipelines_or_auto_discover(pipelines, socket.assigns.page.node) do
       {:ok, pipelines} ->
         socket = assign(socket, :pipelines, pipelines)
-
-        nav_pipeline = nav_pipeline(params)
-        pipeline = nav_pipeline && Enum.find(pipelines, fn name -> name == nav_pipeline end)
+        pipeline = nav_pipeline(params, pipelines)
 
         cond do
           pipeline ->
@@ -95,7 +92,8 @@ defmodule BroadwayDashboard do
             end
 
           true ->
-            to = live_dashboard_path(socket, socket.assigns.page, nav: hd(pipelines))
+            nav = pipelines |> hd() |> inspect()
+            to = live_dashboard_path(socket, socket.assigns.page, nav: nav)
             {:ok, push_redirect(socket, to: to)}
         end
 
@@ -104,19 +102,10 @@ defmodule BroadwayDashboard do
     end
   end
 
-  defp nav_pipeline(params) do
+  defp nav_pipeline(params, pipelines) do
     nav = params["nav"]
     nav = if nav && nav != "", do: nav
-
-    if nav do
-      to_existing_atom_or_nil(nav)
-    end
-  end
-
-  defp to_existing_atom_or_nil(nav) do
-    String.to_existing_atom(nav)
-  rescue
-    ArgumentError -> nil
+    nav && Enum.find(pipelines, fn name -> inspect(name) == nav end)
   end
 
   defp check_socket_connection(socket) do
@@ -154,20 +143,14 @@ defmodule BroadwayDashboard do
     else
       items =
         for name <- assigns.pipelines do
+          name = inspect(name)
+
           {name,
-           name: format_nav_name(name),
-           render: fn -> render_pipeline_or_error(assigns) end,
-           method: :redirect}
+           name: name, render: fn -> render_pipeline_or_error(assigns) end, method: :redirect}
         end
 
       nav_bar(items: items)
     end
-  end
-
-  defp format_nav_name(pipeline_name) do
-    "Elixir." <> name = Atom.to_string(pipeline_name)
-
-    name
   end
 
   defp render_pipeline_or_error(assigns) do

@@ -34,19 +34,19 @@ defmodule BroadwayDashboardTest do
   end
 
   test "redirects to the first pipeline if no pipeline is provided" do
-    assert {:error, {:live_redirect, %{to: "/dashboard/broadway?nav=Elixir.Demo.Pipeline"}}} =
+    assert {:error, {:live_redirect, %{to: "/dashboard/broadway?nav=Demo.Pipeline"}}} =
              live(build_conn(), "/dashboard/broadway")
   end
 
   test "redirects to the first pipeline if pipeline provided does not exist" do
-    assert {:error, {:live_redirect, %{to: "/dashboard/broadway?nav=Elixir.Demo.Pipeline"}}} =
-             live(build_conn(), "/dashboard/broadway?nav=Elixir.IDontExist")
+    assert {:error, {:live_redirect, %{to: "/dashboard/broadway?nav=Demo.Pipeline"}}} =
+             live(build_conn(), "/dashboard/broadway?nav=IDontExist")
   end
 
   test "redirects to the first pipeline if no pipeline is provided keeping node" do
     base_path = URI.encode("/dashboard/#{node()}/broadway", &(&1 != ?@))
 
-    path_with_node_and_pipeline = "#{base_path}?nav=Elixir.Demo.Pipeline"
+    path_with_node_and_pipeline = "#{base_path}?nav=Demo.Pipeline"
 
     assert {:error, {:live_redirect, %{to: ^path_with_node_and_pipeline}}} =
              live(build_conn(), base_path)
@@ -68,14 +68,15 @@ defmodule BroadwayDashboardTest do
               {:live_redirect, %{to: "/dashboard/broadway_auto_discovery?nav=" <> nav_name}}} =
                live(build_conn(), "/dashboard/broadway_auto_discovery")
 
-      assert nav_name == to_string(name)
+      assert nav_name == inspect(name)
     end
 
     test "shows the pipeline after auto discover" do
       name = new_unique_name()
       {:ok, _broadway} = start_supervised({Demo.Pipeline, [broadway_name: name]})
 
-      {:ok, live, _} = live(build_conn(), "/dashboard/broadway_auto_discovery?nav=#{name}")
+      {:ok, live, _} =
+        live(build_conn(), "/dashboard/broadway_auto_discovery?nav=#{inspect(name)}")
 
       rendered = render(live)
       assert rendered =~ "Updates automatically"
@@ -83,7 +84,7 @@ defmodule BroadwayDashboardTest do
       assert rendered =~ "All time"
     end
 
-    test "renders error if auto discover is enabled but pipeline is registered using via" do
+    test "auto discover is enabled when pipeline is registered using via" do
       {:ok, registry} = Registry.start_link(keys: :unique, name: MyRegistry)
       name = via_tuple(:broadway)
 
@@ -99,10 +100,11 @@ defmodule BroadwayDashboardTest do
           batchers: [default: []]
         )
 
-      {:ok, live, _} = live(build_conn(), "/dashboard/broadway_auto_discovery")
+      nav_name = inspect(name) |> URI.encode_www_form()
 
-      rendered = render(live)
-      assert rendered =~ "There is no pipeline running"
+      assert {:error,
+              {:live_redirect, %{to: "/dashboard/broadway_auto_discovery?nav=" <> ^nav_name}}} =
+               live(build_conn(), "/dashboard/broadway_auto_discovery")
 
       Process.exit(registry, :normal)
     end
@@ -113,7 +115,7 @@ defmodule BroadwayDashboardTest do
   test "shows the pipeline" do
     start_supervised!(Demo.Pipeline)
 
-    {:ok, live, _} = live(build_conn(), "/dashboard/broadway?nav=Elixir.Demo.Pipeline")
+    {:ok, live, _} = live(build_conn(), "/dashboard/broadway?nav=Demo.Pipeline")
 
     rendered = render(live)
     assert rendered =~ "Updates automatically"
@@ -151,7 +153,7 @@ defmodule BroadwayDashboardTest do
   end
 
   test "renders an error message when pipeline does not exist" do
-    {:ok, live, _} = live(build_conn(), "/dashboard/broadway?nav=Elixir.MyDummy")
+    {:ok, live, _} = live(build_conn(), "/dashboard/broadway?nav=MyDummy")
 
     rendered = render(live)
 
@@ -170,7 +172,7 @@ defmodule BroadwayDashboardTest do
     Node.connect(remote_node)
 
     base_path = URI.encode("/dashboard/#{remote_node}/broadway", &(&1 != ?@))
-    {:ok, live, _} = live(build_conn(), "#{base_path}?nav=Elixir.MyDummyOutdated")
+    {:ok, live, _} = live(build_conn(), "#{base_path}?nav=MyDummyOutdated")
 
     rendered = render(live)
 
