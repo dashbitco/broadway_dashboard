@@ -22,7 +22,7 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   def server_name(pipeline) when is_atom(pipeline) do
-    :"Elixir.BroadwayDashboard.Metrics.#{inspect(pipeline)}"
+    :"broadway_dashboard_#{inspect(pipeline)}"
   end
 
   def server_name({:via, registry, term}) when is_atom(registry) do
