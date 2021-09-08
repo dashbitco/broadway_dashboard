@@ -52,6 +52,34 @@ defmodule Demo.Pipeline do
   end
 end
 
+defmodule DemoViaName.Pipeline do
+  use Broadway
+
+  def start_link(opts) do
+    Broadway.start_link(__MODULE__,
+      name: opts[:broadway_name] || __MODULE__,
+      producer: [
+        module: {Broadway.DummyProducer, opts},
+        concurrency: 1
+      ],
+      processors: [
+        default: [concurrency: 10]
+      ],
+      batchers: [
+        default: [batch_size: 20, concurrency: 4, batch_timeout: 2000],
+        s3: [concurrency: 3, batch_size: 15, batch_timeout: 2000]
+      ]
+    )
+  end
+
+  def process_name({:via, Registry, {registry, id}}, base_name) do
+    {:via, Registry, {registry, {id, base_name}}}
+  end
+
+  defdelegate handle_message(processor, message, context), to: Demo.Pipeline
+  defdelegate handle_batch(batcher, messages, batch_info, context), to: Demo.Pipeline
+end
+
 defmodule UsesRegistry do
   use Broadway
 
@@ -98,7 +126,14 @@ defmodule Phoenix.LiveDashboardTest.Router do
     live_dashboard("/dashboard",
       metrics: Phoenix.LiveDashboardTest.Telemetry,
       additional_pages: [
-        broadway: {BroadwayDashboard, pipelines: [Demo.Pipeline, MyDummy, MyDummyOutdated]},
+        broadway:
+          {BroadwayDashboard,
+           pipelines: [
+             Demo.Pipeline,
+             BroadwayDashboard.BroadwaySupport.via_name("shows_pipeline"),
+             MyDummy,
+             MyDummyOutdated
+           ]},
         broadway_auto_discovery: BroadwayDashboard
       ]
     )
@@ -125,6 +160,7 @@ end
 {:ok, _} =
   Supervisor.start_link(
     [
+      {Registry, keys: :unique, name: BroadwayDashboardTestRegistry},
       {Phoenix.PubSub, name: Phoenix.LiveDashboardTest.PubSub, adapter: Phoenix.PubSub.PG2},
       Phoenix.LiveDashboardTest.Endpoint
     ],

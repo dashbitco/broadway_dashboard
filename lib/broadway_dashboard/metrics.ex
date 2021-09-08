@@ -21,16 +21,20 @@ defmodule BroadwayDashboard.Metrics do
     end
   end
 
-  def server_name(pipeline) do
-    :"BroadwayDashboard.Metrics.#{pipeline}"
+  def server_name(pipeline) when is_atom(pipeline) do
+    :"Elixir.BroadwayDashboard.Metrics.#{inspect(pipeline)}"
+  end
+
+  def server_name({:via, registry, term}) when is_atom(registry) do
+    :"Elixir.BroadwayDashboard.Metrics.#{inspect(registry)}.#{inspect(term)}"
   end
 
   defp check_pipeline_running_at_node(pipeline, target_node) do
     result =
       if target_node == node() do
-        Process.whereis(pipeline)
+        GenServer.whereis(pipeline)
       else
-        :rpc.call(target_node, Process, :whereis, [pipeline])
+        :rpc.call(target_node, GenServer, :whereis, [pipeline])
       end
 
     case result do
@@ -43,7 +47,7 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   defp ensure_server_started_at_node(pipeline, name, target_node) when target_node == node() do
-    if Process.whereis(name) do
+    if GenServer.whereis(name) do
       {:ok, name}
     else
       with {:ok, _pid} <- start(pipeline: pipeline, name: name) do
@@ -53,7 +57,7 @@ defmodule BroadwayDashboard.Metrics do
   end
 
   defp ensure_server_started_at_node(pipeline, name, target_node) do
-    case :rpc.call(target_node, Process, :whereis, [name]) do
+    case :rpc.call(target_node, GenServer, :whereis, [name]) do
       pid when is_pid(pid) ->
         {:ok, {name, target_node}}
 

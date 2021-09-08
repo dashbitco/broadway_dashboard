@@ -3,13 +3,10 @@ defmodule BroadwayDashboardTest do
 
   import Phoenix.ConnTest
   import Phoenix.LiveViewTest
-  @endpoint Phoenix.LiveDashboardTest.Endpoint
-
+  import BroadwayDashboard.BroadwaySupport, only: [new_unique_name: 0, via_name: 1]
   alias BroadwayDashboard.Metrics
 
-  defp new_unique_name do
-    :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
-  end
+  @endpoint Phoenix.LiveDashboardTest.Endpoint
 
   test "menu_link/2" do
     link = "https://hexdocs.pm/broadway_dashboard"
@@ -62,7 +59,7 @@ defmodule BroadwayDashboardTest do
 
     test "redirects to the first running pipeline if no pipeline is provided" do
       name = new_unique_name()
-      {:ok, _broadway} = start_supervised({Demo.Pipeline, [broadway_name: name]})
+      start_supervised!({Demo.Pipeline, [broadway_name: name]})
 
       assert {:error,
               {:live_redirect, %{to: "/dashboard/broadway_auto_discovery?nav=" <> nav_name}}} =
@@ -73,8 +70,17 @@ defmodule BroadwayDashboardTest do
 
     test "shows the pipeline after auto discover" do
       name = new_unique_name()
-      {:ok, _broadway} = start_supervised({Demo.Pipeline, [broadway_name: name]})
+      start_supervised!({Demo.Pipeline, [broadway_name: name]})
+      auto_discover_render_test(name)
+    end
 
+    test "shows the pipeline after auto discover(via name)" do
+      name = via_name("auto_discover_shows_pipeline")
+      start_supervised!({DemoViaName.Pipeline, [broadway_name: name]})
+      auto_discover_render_test(name)
+    end
+
+    defp auto_discover_render_test(name) do
       {:ok, live, _} =
         live(build_conn(), "/dashboard/broadway_auto_discovery?nav=#{inspect(name)}")
 
@@ -85,8 +91,7 @@ defmodule BroadwayDashboardTest do
     end
 
     test "auto discover is enabled when pipeline is registered using via" do
-      {:ok, registry} = Registry.start_link(keys: :unique, name: MyRegistry)
-      name = via_tuple(:broadway)
+      name = via_name(:broadway)
 
       {:ok, _broadway} =
         Broadway.start_link(UsesRegistry,
@@ -106,50 +111,57 @@ defmodule BroadwayDashboardTest do
               {:live_redirect, %{to: "/dashboard/broadway_auto_discovery?nav=" <> ^nav_name}}} =
                live(build_conn(), "/dashboard/broadway_auto_discovery")
 
-      Process.exit(registry, :normal)
+      :ok = Broadway.stop(name)
     end
-
-    defp via_tuple(name), do: {:via, Registry, {MyRegistry, name}}
   end
 
-  test "shows the pipeline" do
-    start_supervised!(Demo.Pipeline)
+  describe "shows the pipeline" do
+    test "atom name" do
+      pipeline_display_test(Demo.Pipeline, Demo.Pipeline)
+    end
 
-    {:ok, live, _} = live(build_conn(), "/dashboard/broadway?nav=Demo.Pipeline")
+    test "via name" do
+      pipeline_display_test(DemoViaName.Pipeline, via_name("shows_pipeline"))
+    end
 
-    rendered = render(live)
-    assert rendered =~ "Updates automatically"
-    assert rendered =~ "Throughput"
-    assert rendered =~ "All time"
+    defp pipeline_display_test(module, pipeline) do
+      start_supervised!({module, [broadway_name: pipeline]})
+      {:ok, live, _} = live(build_conn(), "/dashboard/broadway?nav=#{inspect(pipeline)}")
 
-    assert rendered =~ "prod_0"
+      rendered = render(live)
+      assert rendered =~ "Updates automatically"
+      assert rendered =~ "Throughput"
+      assert rendered =~ "All time"
 
-    assert rendered =~ "proc_0"
-    assert rendered =~ "proc_9"
+      assert rendered =~ "prod_0"
 
-    assert rendered =~ "default"
-    assert rendered =~ "proc_0"
-    assert rendered =~ "proc_3"
+      assert rendered =~ "proc_0"
+      assert rendered =~ "proc_9"
 
-    assert rendered =~ "s3"
-    assert rendered =~ "proc_0"
-    assert rendered =~ "proc_2"
+      assert rendered =~ "default"
+      assert rendered =~ "proc_0"
+      assert rendered =~ "proc_3"
 
-    assert has_element?(live, ".banner-card-value", "0")
-    refute has_element?(live, ".banner-card-value", "1")
+      assert rendered =~ "s3"
+      assert rendered =~ "proc_0"
+      assert rendered =~ "proc_2"
 
-    # Send a message
-    ref = Broadway.test_message(Demo.Pipeline, "hello world")
-    assert_receive {:ack, ^ref, [_successful], []}
+      assert has_element?(live, ".banner-card-value", "0")
+      refute has_element?(live, ".banner-card-value", "1")
 
-    # Ensure the page updates it's state
-    server_name = Metrics.server_name(Demo.Pipeline)
-    send(server_name, :refresh)
+      # Send a message
+      ref = Broadway.test_message(pipeline, "hello world")
+      assert_receive {:ack, ^ref, [_successful], []}
 
-    # ensure it renders again
-    render(live)
+      # Ensure the page updates it's state
+      server_name = Metrics.server_name(pipeline)
+      send(server_name, :refresh)
 
-    assert has_element?(live, ".banner-card-value", "1")
+      # ensure it renders again
+      render(live)
+
+      assert has_element?(live, ".banner-card-value", "1")
+    end
   end
 
   test "renders an error message when pipeline does not exist" do
