@@ -57,16 +57,17 @@ defmodule BroadwayDashboard.PipelineGraph do
           |> Enum.sort_by(fn batcher -> batcher.batcher_key end)
           |> Enum.map(fn batcher ->
             label = to_string(batcher.batcher_key)
+            batcher_name = inspect(batcher.name)
 
             children_ids =
               previous_layer
               |> Enum.filter(fn batch_proc ->
-                String.starts_with?(to_string(batch_proc.id), to_string(batcher.name))
+                String.starts_with?(batch_proc.id, batcher_name)
               end)
               |> Enum.map(& &1.id)
 
             %{
-              id: batcher.batcher_name,
+              id: inspect(batcher.batcher_name),
               data: %{label: label, detail: batcher.batcher_workload},
               children: children_ids
             }
@@ -83,7 +84,7 @@ defmodule BroadwayDashboard.PipelineGraph do
     show_workload? = Keyword.get(opts, :show_workload?, true)
 
     for stage <- stage_details, i <- 0..(stage.concurrency - 1) do
-      name = :"#{stage.name}_#{i}"
+      name = "#{inspect(stage.name)}_#{i}"
 
       data =
         if show_workload? do

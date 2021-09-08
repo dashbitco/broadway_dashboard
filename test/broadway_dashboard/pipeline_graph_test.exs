@@ -1,36 +1,17 @@
 defmodule BroadwayDashboard.PipelineGraphTest do
   use ExUnit.Case, async: true
 
-  alias BroadwayDashboard.Counters
-  alias BroadwayDashboard.PipelineGraph
-
-  defmodule Forwarder do
-    use Broadway
-
-    def handle_message(:default, message, %{test_pid: test_pid}) do
-      send(test_pid, {:message_handled, message.data})
-      message
-    end
-
-    def handle_batch(batcher, messages, _, %{test_pid: test_pid}) do
-      send(test_pid, {:batch_handled, batcher, messages})
-      messages
-    end
-  end
-
-  defp new_unique_name do
-    :"Elixir.Broadway#{System.unique_integer([:positive, :monotonic])}"
-  end
+  alias BroadwayDashboard.{Counters, PipelineGraph, BroadwaySupport}
+  import BroadwayDashboard.BroadwaySupport
 
   describe "build_layers/2" do
     test "without batchers" do
-      broadway = new_unique_name()
+      broadway = BroadwaySupport.new_unique_name()
 
-      Broadway.start_link(Forwarder,
-        name: broadway,
-        context: %{test_pid: self()},
-        producer: [module: {Broadway.DummyProducer, []}],
-        processors: [default: [concurrency: 3]]
+      start_linked_dummy_pipeline(
+        broadway,
+        processors: [default: [concurrency: 3]],
+        batchers: []
       )
 
       topology = Broadway.topology(broadway)
@@ -49,12 +30,10 @@ defmodule BroadwayDashboard.PipelineGraphTest do
     end
 
     test "with batchers" do
-      broadway = new_unique_name()
+      broadway = BroadwaySupport.new_unique_name()
 
-      Broadway.start_link(Forwarder,
-        name: broadway,
-        context: %{test_pid: self()},
-        producer: [module: {Broadway.DummyProducer, []}],
+      start_linked_dummy_pipeline(
+        broadway,
         processors: [default: [concurrency: 3]],
         batchers: [default: [concurrency: 2], s3: [concurrency: 1]]
       )
@@ -102,18 +81,20 @@ defmodule BroadwayDashboard.PipelineGraphTest do
                ]
              ] = PipelineGraph.build_layers(topology_workload)
 
-      assert prod_id == :"#{broadway}.Broadway.Producer_0"
+      broadway_str = inspect(broadway)
 
-      assert proc_0 == :"#{broadway}.Broadway.Processor_default_0"
-      assert proc_1 == :"#{broadway}.Broadway.Processor_default_1"
-      assert proc_2 == :"#{broadway}.Broadway.Processor_default_2"
+      assert prod_id == "#{broadway_str}.Broadway.Producer_0"
 
-      assert default_batcher == :"#{broadway}.Broadway.Batcher_default"
+      assert proc_0 == "#{broadway_str}.Broadway.Processor_default_0"
+      assert proc_1 == "#{broadway_str}.Broadway.Processor_default_1"
+      assert proc_2 == "#{broadway_str}.Broadway.Processor_default_2"
 
-      assert batch_proc_0 == :"#{broadway}.Broadway.BatchProcessor_default_0"
-      assert batch_proc_1 == :"#{broadway}.Broadway.BatchProcessor_default_1"
+      assert default_batcher == "#{broadway_str}.Broadway.Batcher_default"
 
-      assert batch_proc_s3 == :"#{broadway}.Broadway.BatchProcessor_s3_0"
+      assert batch_proc_0 == "#{broadway_str}.Broadway.BatchProcessor_default_0"
+      assert batch_proc_1 == "#{broadway_str}.Broadway.BatchProcessor_default_1"
+
+      assert batch_proc_s3 == "#{broadway_str}.Broadway.BatchProcessor_s3_0"
     end
   end
 end
