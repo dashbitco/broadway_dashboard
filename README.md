@@ -39,6 +39,26 @@ live_dashboard "/dashboard",
 
 Once configured, you will be able to access the `BroadwayDashboard` at `/dashboard/broadway`.
 
+## Using from the command line with PLDS
+
+It's possible to use Broadway Dashboard without having to install it on your application.
+PLDS stands for Phoenix LiveDashboard Standalone and it's a CLI version of Phoenix LiveDashboard with
+some tools pre-installed. One of those tools is Broadway Dashboard.
+
+To install PLDS on your machine, you can run:
+
+```
+$ mix escript.install hex plds
+```
+
+Then connect to your running node with:
+
+```
+$ plds server --connect mynode --open
+```
+
+For more information about the usage, please check the [PLDS documentation](https://hexdocs.pm/plds).
+
 ## Distribution
 
 **Phoenix LiveDashboard** works with distribution out of the box, and it's not different
