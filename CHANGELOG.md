@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2021-10-21
+
+### Added
+
+- Add support for Phoenix LiveDashboard `~> 0.6.0`
+
 ## [0.2.1] - 2021-09-08
 
 ### Fixed
@@ -25,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Broadway Dashboard.
 
-[Unreleased]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/dashbitco/broadway_dashboard/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dashbitco/broadway_dashboard/releases/tag/v0.1.0
