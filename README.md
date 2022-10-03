@@ -78,7 +78,7 @@ Add the following to your `mix.exs` and run mix `deps.get`:
 ```elixir
 def deps do
   [
-    {:broadway_dashboard, "~> 0.2.0"}
+    {:broadway_dashboard, "~> 0.3.0"}
   ]
 end
 ```
@@ -93,6 +93,17 @@ This project is based on [Marlus Saraiva's](https://github.com/msaraiva/) work f
 In that talk he presented a graph showing the work of a Broadway pipeline, which is
 essentially the same we display in this project.
 Thank you, Marlus! <3
+
+## Development
+
+After cloning this project, you can use the following command to run a development server with a
+sample pipeline:
+
+    $ mix dev
+
+This is going to start a server running Phoenix LiveDashboard.
+
+Use `mix test` to run the test suite.
 
 ## License
 

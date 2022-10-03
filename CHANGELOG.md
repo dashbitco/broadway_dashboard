@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2022-10-03
+
+### Added
+
+- Add support for Phoenix LiveDashboard `~> 0.7.0`. Thanks [@walter](https://github.com/walter).
+
+### Removed
+
+- Remove support for Elixir v1.11. Thanks [@walter](https://github.com/walter).
+
 ## [0.2.2] - 2021-10-21
 
 ### Added
@@ -31,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Broadway Dashboard.
 
-[Unreleased]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/dashbitco/broadway_dashboard/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/dashbitco/broadway_dashboard/compare/v0.1.0...v0.2.0
