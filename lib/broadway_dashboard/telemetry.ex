@@ -22,7 +22,12 @@ defmodule BroadwayDashboard.Telemetry do
       [:broadway, :batch_processor, :stop]
     ]
 
-    :telemetry.attach_many({__MODULE__, parent}, events, &handle_event/4, {pipeline, counters})
+    :telemetry.attach_many(
+      {__MODULE__, parent},
+      events,
+      &__MODULE__.handle_event/4,
+      {pipeline, counters}
+    )
   end
 
   def detach(parent) do
