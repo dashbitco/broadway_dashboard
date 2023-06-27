@@ -149,11 +149,11 @@ defmodule BroadwayDashboard do
            name: name, render: fn -> render_pipeline_or_error(assigns) end, method: :redirect}
         end
 
-      compatible_nav_bar(items: items, page: assigns[:page])
+      nav_bar(items: items, page: assigns[:page])
     end
   end
 
-  defp compatible_nav_bar(opts) do
+  defp nav_bar(opts) do
     assigns = Map.new(opts)
 
     ~H"""
