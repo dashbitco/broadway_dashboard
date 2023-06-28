@@ -178,8 +178,6 @@ defmodule BroadwayDashboard do
     <.row>
       <:col>
         <.pipeline_throughput_row stats={@stats} />
-      </:col>
-      <:col>
         <.pipeline_graph_row layers={@layers} />
       </:col>
     </.row>
@@ -237,14 +235,24 @@ defmodule BroadwayDashboard do
         <.row>
           <:col>
             <.card title="Throughput" hint="Messages p/ second." inner_title="successful"><%= @stats.throughput_successful %></.card>
+          </:col>
+          <:col>
             <.card inner_title="failed"><%= @stats.throughput_failed %></.card>
+          </:col>
+          <:col>
             <.card inner_title="total"><%= @stats.throughput_successful + @stats.throughput_failed %></.card>
           </:col>
         </.row>
+      </:col>
+      <:col>
         <.row>
           <:col>
             <.card title="All time" hint="Messages since start." inner_title="successful"><%= @stats.successful %></.card>
+          </:col>
+          <:col>
             <.card inner_title="failed"><%= @stats.failed %></.card>
+          </:col>
+          <:col>
             <.card inner_title="total"><%= @stats.successful + @stats.failed %></.card>
           </:col>
         </.row>
