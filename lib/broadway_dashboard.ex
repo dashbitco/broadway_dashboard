@@ -137,7 +137,7 @@ defmodule BroadwayDashboard do
   end
 
   @impl true
-  def render_page(assigns) do
+  def render(assigns) do
     if assigns[:error] do
       render_error(assigns)
     else
@@ -149,8 +149,20 @@ defmodule BroadwayDashboard do
            name: name, render: fn -> render_pipeline_or_error(assigns) end, method: :redirect}
         end
 
-      nav_bar(items: items)
+      nav_bar(items: items, page: assigns[:page])
     end
+  end
+
+  defp nav_bar(opts) do
+    assigns = Map.new(opts)
+
+    ~H"""
+    <.live_nav_bar id="broadway_navbar" page={@page}>
+      <:item name={name} :for={{name, item} <- @items}>
+        <%= item[:render].() %>
+      </:item>
+    </.live_nav_bar>
+    """
   end
 
   defp render_pipeline_or_error(assigns) do
@@ -162,108 +174,91 @@ defmodule BroadwayDashboard do
   end
 
   defp render_pipeline(assigns) do
-    row(
-      components: [
-        columns(
-          components: [
-            pipeline_throughput_row(assigns.stats)
-          ]
-        ),
-        columns(
-          components: [
-            pipeline_graph_row(assigns.layers)
-          ]
-        )
-      ]
-    )
+    ~H"""
+    <.row>
+      <:col>
+        <.pipeline_throughput_row stats={@stats} />
+        <.pipeline_graph_row layers={@layers} />
+      </:col>
+    </.row>
+    """
   end
 
   defp render_error(assigns) do
-    error_message =
-      case assigns.error do
-        :connection_is_not_available ->
-          "Dashboard is not connected yet."
+    error_message = error_message(assigns)
+    assigns = Map.put(assigns, :error_message, error_message)
 
-        :pipeline_not_found ->
-          "This pipeline is not available for this node."
-
-        :pipeline_is_not_running ->
-          "This pipeline is not running on this node."
-
-        :broadway_is_not_available ->
-          "Broadway is not available on remote node."
-
-        :version_is_not_enough ->
-          "Broadway is outdated on remote node. Minimum version required is #{@minimum_broadway_version}"
-
-        :no_pipelines_available ->
-          "There is no pipeline running on this node."
-
-        :cannot_list_running_pipelines ->
-          "Could not list running pipelines at remote node. Please try again later."
-
-        :not_able_to_start_remotely ->
-          "Could not start the metrics server remotely. Please try again later."
-
-        {:badrpc, _} ->
-          "Could not send request to node. Try again later."
-      end
-
-    row(
-      components: [
-        columns(
-          components: [
-            card(value: error_message)
-          ]
-        )
-      ]
-    )
+    ~H"""
+    <.row>
+      <:col>
+        <.card><%= @error_message %></.card>
+      </:col>
+    </.row>
+    """
   end
 
-  defp pipeline_throughput_row(stats) do
-    row(
-      components: [
-        columns(
-          components: [
-            row(
-              components: [
-                columns(
-                  components: [
-                    card(
-                      title: "Throughput",
-                      hint: "Messages p/ second.",
-                      inner_title: "successful",
-                      value: stats.throughput_successful
-                    ),
-                    card(inner_title: "failed", value: stats.throughput_failed),
-                    card(
-                      inner_title: "total",
-                      value: stats.throughput_successful + stats.throughput_failed
-                    )
-                  ]
-                )
-              ]
-            ),
-            row(
-              components: [
-                columns(
-                  components: [
-                    card(
-                      title: "All time",
-                      hint: "Messages since start.",
-                      inner_title: "successful",
-                      value: stats.successful
-                    ),
-                    card(inner_title: "failed", value: stats.failed),
-                    card(inner_title: "total", value: stats.successful + stats.failed)
-                  ]
-                )
-              ]
-            )
-          ]
-        )
-      ]
-    )
+  defp error_message(assigns) do
+    case assigns.error do
+      :connection_is_not_available ->
+        "Dashboard is not connected yet."
+
+      :pipeline_not_found ->
+        "This pipeline is not available for this node."
+
+      :pipeline_is_not_running ->
+        "This pipeline is not running on this node."
+
+      :broadway_is_not_available ->
+        "Broadway is not available on remote node."
+
+      :version_is_not_enough ->
+        "Broadway is outdated on remote node. Minimum version required is #{@minimum_broadway_version}"
+
+      :no_pipelines_available ->
+        "There is no pipeline running on this node."
+
+      :cannot_list_running_pipelines ->
+        "Could not list running pipelines at remote node. Please try again later."
+
+      :not_able_to_start_remotely ->
+        "Could not start the metrics server remotely. Please try again later."
+
+      {:badrpc, _} ->
+        "Could not send request to node. Try again later."
+    end
+  end
+
+  defp pipeline_throughput_row(assigns) do
+    ~H"""
+    <.row>
+      <:col>
+        <.row>
+          <:col>
+            <.card title="Throughput" hint="Messages p/ second." inner_title="successful"><%= @stats.throughput_successful %></.card>
+          </:col>
+          <:col>
+            <.card inner_title="failed"><%= @stats.throughput_failed %></.card>
+          </:col>
+          <:col>
+            <.card inner_title="total"><%= @stats.throughput_successful + @stats.throughput_failed %></.card>
+          </:col>
+        </.row>
+      </:col>
+      <:col>
+        <.row>
+          <:col>
+            <.card title="All time" hint="Messages since start." inner_title="successful"><%= @stats.successful %></.card>
+          </:col>
+          <:col>
+            <.card inner_title="failed"><%= @stats.failed %></.card>
+          </:col>
+          <:col>
+            <.card inner_title="total"><%= @stats.successful + @stats.failed %></.card>
+          </:col>
+        </.row>
+      </:col>
+    </.row>
+    """
   end
 
   @hint """
@@ -276,23 +271,16 @@ defmodule BroadwayDashboard do
   processes in red.
   """
 
-  defp pipeline_graph_row(layers) do
-    row(
-      title: "Graph",
-      components: [
-        columns(
-          components: [
-            layered_graph(
-              layers: layers,
-              title: "Pipeline",
-              hint: @hint,
-              background: &background/1,
-              format_detail: &format_detail/1
-            )
-          ]
-        )
-      ]
-    )
+  defp pipeline_graph_row(assigns) do
+    assigns = Map.put(assigns, :hint, @hint)
+
+    ~H"""
+    <.row>
+      <:col>
+        <.live_layered_graph layers={@layers} id="pipeline" title="Pipeline" hint={@hint} background={&background/1} format_detail={&format_detail/1} />
+      </:col>
+    </.row>
+    """
   end
 
   defp background(node_data) when is_binary(node_data) do
