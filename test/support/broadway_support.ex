@@ -2,11 +2,13 @@ defmodule BroadwayDashboard.BroadwaySupport do
   defmodule Forwarder do
     use Broadway
 
+    @impl true
     def handle_message(:default, message, %{test_pid: test_pid}) do
       send(test_pid, {:message_handled, message.data})
       message
     end
 
+    @impl true
     def handle_batch(batcher, messages, _, %{test_pid: test_pid}) do
       send(test_pid, {:batch_handled, batcher, messages})
       messages
@@ -15,6 +17,11 @@ defmodule BroadwayDashboard.BroadwaySupport do
 
   defmodule ForwarderViaName do
     use Broadway
+
+    # For some reason, this module needs to always be compiled in order
+    # to see the "process_name/2" function implemented.
+    # TODO: investigate
+    def __mix_recompile__?(), do: true
 
     def process_name({:via, registry, {registry_name, name}}, base_name) do
       {:via, registry, {registry_name, {name, base_name}}}
