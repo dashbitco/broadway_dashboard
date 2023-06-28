@@ -1,7 +1,7 @@
 defmodule BroadwayDashboard.MixProject do
   use Mix.Project
 
-  @version "0.3.0"
+  @version "0.4.0"
   @description "A Phoenix LiveDashboard page for inspecting your Broadway pipelines"
 
   def project do
