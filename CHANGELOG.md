@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2024-01-09
+
+### Fixed
+
+- Fix navigation problem when there is multiple pipelines.
+
+  It was not displaying the "second" pipeline correctly when the user navigate to it.
+  The issue affected users with `phoenix_live_dashboard` version `0.8` and `broadway_dashboard`
+  in the version `0.4.0`.
+
+  Thanks [@HarisudhanRavi](https://github.com/HarisudhanRavi).
+
 ## [0.4.0] - 2023-06-28
 
 ### Added
@@ -57,7 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Broadway Dashboard.
 
-[Unreleased]: https://github.com/dashbitco/broadway_dashboard/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/dashbitco/broadway_dashboard/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/dashbitco/broadway_dashboard/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/dashbitco/broadway_dashboard/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/dashbitco/broadway_dashboard/compare/v0.2.1...v0.2.2
