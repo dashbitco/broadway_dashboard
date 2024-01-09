@@ -145,9 +145,7 @@ defmodule BroadwayDashboard do
         for name <- assigns.pipelines do
           name = inspect(name)
 
-          {name,
-           "navigate",
-           name: name, render: fn -> render_pipeline_or_error(assigns) end}
+          {name, "navigate", name: name, render: fn -> render_pipeline_or_error(assigns) end}
         end
 
       nav_bar(items: items, page: assigns[:page])
