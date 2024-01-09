@@ -146,7 +146,8 @@ defmodule BroadwayDashboard do
           name = inspect(name)
 
           {name,
-           name: name, render: fn -> render_pipeline_or_error(assigns) end, method: :redirect}
+           "navigate",
+           name: name, render: fn -> render_pipeline_or_error(assigns) end}
         end
 
       nav_bar(items: items, page: assigns[:page])
@@ -158,7 +159,7 @@ defmodule BroadwayDashboard do
 
     ~H"""
     <.live_nav_bar id="broadway_navbar" page={@page}>
-      <:item name={name} :for={{name, item} <- @items}>
+      <:item name={name} method={method} :for={{name, method, item} <- @items}>
         <%= item[:render].() %>
       </:item>
     </.live_nav_bar>
