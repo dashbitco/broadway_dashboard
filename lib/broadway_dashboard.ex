@@ -246,7 +246,7 @@ defmodule BroadwayDashboard do
       <:col>
         <.row>
           <:col>
-            <.card title="All time" hint="Messages since start." inner_title="successful"><%= @stats.successful %></.card>
+            <.card title="Successful" hint="Messages since the BroadwayDashboard page was first mounted." inner_title="successful"><%= @stats.successful %></.card>
           </:col>
           <:col>
             <.card inner_title="failed"><%= @stats.failed %></.card>
