@@ -87,7 +87,7 @@ defmodule BroadwayDashboardTest do
       rendered = render(live)
       assert rendered =~ "Updates automatically"
       assert rendered =~ "Throughput"
-      assert rendered =~ "All time"
+      assert rendered =~ "Successful"
     end
 
     test "auto discover is enabled when pipeline is registered using via" do
@@ -131,7 +131,7 @@ defmodule BroadwayDashboardTest do
       rendered = render(live)
       assert rendered =~ "Updates automatically"
       assert rendered =~ "Throughput"
-      assert rendered =~ "All time"
+      assert rendered =~ "Successful"
 
       assert rendered =~ "prod_0"
 
