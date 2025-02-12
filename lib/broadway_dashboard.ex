@@ -94,7 +94,7 @@ defmodule BroadwayDashboard do
           true ->
             nav = pipelines |> hd() |> inspect()
             to = live_dashboard_path(socket, socket.assigns.page, nav: nav)
-            {:ok, push_redirect(socket, to: to)}
+            {:ok, push_navigate(socket, to: to)}
         end
 
       {:error, error} ->

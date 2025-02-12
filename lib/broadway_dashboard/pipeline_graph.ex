@@ -4,7 +4,7 @@ defmodule BroadwayDashboard.PipelineGraph do
   # This module is responsible for calculating the
   # layers of a given pipeline.
 
-  alias BroadwayDashboard.LiveDashboard.LayeGraphComponent
+  alias Phoenix.LiveDashboard.LayeredGraphComponent
 
   @type topology_workload :: %{
           :name => atom(),
@@ -16,7 +16,7 @@ defmodule BroadwayDashboard.PipelineGraph do
         }
   @type topology_workload_item :: {:producers | :processors | :batchers, topology_workload()}
 
-  @spec build_layers([topology_workload_item()]) :: [LayeGraphComponent.layer()]
+  @spec build_layers([topology_workload_item()]) :: [LayeredGraphComponent.layer()]
   def build_layers(topology_workloads) when is_list(topology_workloads) do
     # The order of steps is important here.
     steps =
