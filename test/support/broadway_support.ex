@@ -18,11 +18,6 @@ defmodule BroadwayDashboard.BroadwaySupport do
   defmodule ForwarderViaName do
     use Broadway
 
-    # For some reason, this module needs to always be compiled in order
-    # to see the "process_name/2" function implemented.
-    # TODO: investigate
-    def __mix_recompile__?(), do: true
-
     def process_name({:via, registry, {registry_name, name}}, base_name) do
       {:via, registry, {registry_name, {name, base_name}}}
     end
@@ -49,11 +44,16 @@ defmodule BroadwayDashboard.BroadwaySupport do
         opts
       )
 
-    cond do
-      is_atom(name) -> Forwarder
-      is_tuple(name) -> ForwarderViaName
-    end
-    |> Broadway.start_link([{:name, name} | opts])
+    module =
+      cond do
+        is_atom(name) -> Forwarder
+        is_tuple(name) -> ForwarderViaName
+      end
+
+    # Ensure the module is loaded so that function_exported?/3 works.
+    # OTP 28 no longer auto-loads modules in erlang:function_exported/3.
+    Code.ensure_loaded!(module)
+    Broadway.start_link(module, [{:name, name} | opts])
 
     name
   end
