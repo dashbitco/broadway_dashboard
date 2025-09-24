@@ -130,7 +130,7 @@ defmodule BroadwayDashboard.Telemetry do
   def handle_event(
         [:broadway, :processor, :message, :exception],
         _measurements,
-        %{topology_name: pipeline} = _metadata,
+        %{topology_name: pipeline},
         {pipeline, counters}
       ) do
     :ok = Counters.incr(counters, 0, 1)
