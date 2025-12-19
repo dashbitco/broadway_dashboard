@@ -15,6 +15,31 @@ See [Distribution](#distribution) for details.
 
 ![Broadway Dashboard](https://raw.githubusercontent.com/dashbitco/broadway_dashboard/4da2a5f388a7579d41b63803652796c106b74785/priv/static/broadway-dashboard-01.gif)
 
+## Pan and Zoom
+
+For pipelines with large numbers of concurrent processors or batchers, you can use the
+pan and zoom controls to navigate the pipeline graph:
+
+- **Scroll to zoom**: Use your mouse wheel to zoom in and out (centered on cursor position)
+- **Drag to pan**: Click and drag to move the view around
+- **Touch support**: Pinch to zoom and drag to pan on touch devices
+- **Control buttons**: Use the buttons in the top-right corner:
+  - `+` / `-` for zoom in/out
+  - Reset button to return to default view
+  - Fit button to fit the entire pipeline in view
+
+To enable pan/zoom functionality, add `BroadwayDashboard.Hooks` to your LiveDashboard configuration:
+
+```elixir
+live_dashboard "/dashboard",
+  additional_pages: [
+    broadway: BroadwayDashboard
+  ],
+  on_mount: [BroadwayDashboard.Hooks]
+```
+
+**Note:** This feature requires `phoenix_live_dashboard` version 0.8.5 or later.
+
 ## Integration with Phoenix LiveDashboard
 
 You can add this page to your Phoenix LiveDashboard by adding as a page in

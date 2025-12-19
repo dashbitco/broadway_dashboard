@@ -171,7 +171,8 @@ defmodule DemoWeb.Router do
       allow_destructive_actions: true,
       additional_pages: [
         broadway: BroadwayDashboard
-      ]
+      ],
+      on_mount: [BroadwayDashboard.Hooks]
     )
   end
 end

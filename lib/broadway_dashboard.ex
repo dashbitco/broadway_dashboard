@@ -276,7 +276,17 @@ defmodule BroadwayDashboard do
     ~H"""
     <.row>
       <:col>
-        <.live_layered_graph layers={@layers} id="pipeline" title="Pipeline" hint={@hint} background={&background/1} format_detail={&format_detail/1} />
+        <div id="pipeline-zoom-container" class="broadway-pipeline-zoom-container">
+          <div id="pipeline-zoom-controls" phx-update="ignore" data-panzoom-controls class="broadway-pipeline-zoom-controls">
+            <button type="button" data-zoom-in title="Zoom in">+</button>
+            <button type="button" data-zoom-out title="Zoom out">-</button>
+            <span data-zoom-level class="broadway-pipeline-zoom-level">100%</span>
+            <button type="button" data-zoom-reset title="Reset zoom">&#8634;</button>
+            <button type="button" data-zoom-fit title="Fit to view">&#9744;</button>
+          </div>
+          <.live_layered_graph layers={@layers} id="pipeline" title="Pipeline" hint={@hint} background={&background/1} format_detail={&format_detail/1} />
+          <div class="broadway-pipeline-zoom-hint">Scroll to zoom, drag to pan</div>
+        </div>
       </:col>
     </.row>
     """
