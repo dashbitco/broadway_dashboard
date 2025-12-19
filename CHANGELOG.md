@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add pan and zoom controls for large pipeline graphs. Users can now:
+  - Scroll to zoom in/out (centered on cursor position)
+  - Click and drag to pan the view
+  - Use pinch gestures on touch devices
+  - Use control buttons for zoom in, zoom out, reset, and fit-to-view
+
+  To enable, add `BroadwayDashboard.Hooks` to your LiveDashboard `on_mount` configuration.
+  Addresses [#17](https://github.com/dashbitco/broadway_dashboard/issues/17).
+
+### Changed
+
+- Require `phoenix_live_dashboard` version 0.8.5 or later (was 0.8.0).
+
 ## [0.4.1] - 2024-01-09
 
 ### Fixed
