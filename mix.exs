@@ -36,7 +36,7 @@ defmodule BroadwayDashboard.MixProject do
       {:plug_cowboy, "~> 2.0", only: :dev},
       {:jason, "~> 1.0", only: [:dev, :test, :docs]},
       {:ex_doc, "~> 0.24", only: [:docs], runtime: false},
-      {:stream_data, "~> 0.5", only: [:dev, :test]},
+      {:stream_data, "~> 1.0", only: [:dev, :test]},
       {:floki, "~> 0.34", only: :test}
     ]
   end
